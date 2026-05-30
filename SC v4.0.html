@@ -1,0 +1,3700 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>DialExpert — MITI Call Cockpit v6.1</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&amp;family=Syne:wght@400;600;700;800&amp;display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #0a0b0f;
+    --surface: #111318;
+    --surface2: #181b22;
+    --border: #1e2230;
+    --accent: #00e5ff;
+    --accent2: #ff3d71;
+    --accent3: #ffe600;
+    --green: #00ff88;
+    --text: #e8eaf0;
+    --muted: #5a6080;
+    --act1: #00b4d8;
+    --act2: #7b2ff7;
+    --act3: #ff6b35;
+    --act4: #06d6a0;
+    --act5: #ffd166;
+    --act6: #ef476f;
+    --act7: #118ab2;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Scanline overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,229,255,0.015) 2px, rgba(0,229,255,0.015) 4px);
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* TOP BAR */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 24px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo {
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+    color: var(--accent);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+  .logo span { color: var(--muted); }
+
+  .timer-block {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .call-timer {
+    font-family: 'Space Mono', monospace;
+    font-size: 22px;
+    color: var(--green);
+    letter-spacing: 3px;
+    text-shadow: 0 0 20px rgba(0,255,136,0.4);
+  }
+
+  .timer-btns { display: flex; gap: 8px; }
+  .timer-btns button {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 14px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all .2s;
+    letter-spacing: 1px;
+  }
+  .timer-btns button:hover { border-color: var(--accent); color: var(--accent); }
+  .timer-btns button.active { background: var(--accent); color: #000; border-color: var(--accent); }
+
+  .hotkey-hint {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 1px;
+  }
+  .hotkey-hint kbd {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    padding: 2px 6px;
+    border-radius: 3px;
+    color: var(--accent3);
+  }
+
+  /* MAIN LAYOUT */
+  .main {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    height: calc(100vh - 53px);
+  }
+
+  /* SIDEBAR — ACT NAV */
+  .sidebar {
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    padding: 16px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .sidebar-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    padding: 0 8px 8px;
+  }
+
+  .act-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    background: transparent;
+    transition: all .2s;
+    text-align: left;
+    width: 100%;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .act-btn::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: var(--act-color);
+    opacity: 0;
+    transition: opacity .2s;
+  }
+
+  .act-btn:hover { background: var(--surface2); border-color: var(--border); }
+  .act-btn:hover::before { opacity: 1; }
+
+  .act-btn.active {
+    background: var(--surface2);
+    border-color: var(--border);
+  }
+  .act-btn.active::before { opacity: 1; }
+
+  .act-num {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--act-color);
+    background: rgba(255,255,255,0.05);
+    padding: 3px 7px;
+    border-radius: 3px;
+    letter-spacing: 1px;
+    flex-shrink: 0;
+  }
+
+  .act-info { flex: 1; min-width: 0; }
+  .act-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .act-sub {
+    font-size: 10px;
+    color: var(--muted);
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .act-done {
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: var(--green);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px;
+    color: #000;
+    flex-shrink: 0;
+    opacity: 0;
+    transition: opacity .3s;
+  }
+  .act-btn.done .act-done { opacity: 1; }
+
+  /* Progress bar */
+  .progress-wrap {
+    padding: 16px 12px 8px;
+    margin-top: auto;
+    border-top: 1px solid var(--border);
+  }
+  .progress-label {
+    display: flex;
+    justify-content: space-between;
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .progress-bar {
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--act1), var(--accent));
+    border-radius: 2px;
+    transition: width .4s ease;
+    width: 0%;
+  }
+
+  /* CONTENT AREA */
+  .content {
+    overflow-y: auto;
+    padding: 0;
+    background: var(--bg);
+  }
+
+  /* ACT PANEL */
+  .act-panel {
+    display: none;
+    animation: fadeSlide .25s ease;
+  }
+  .act-panel.visible { display: block; }
+
+  @keyframes fadeSlide {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .act-header {
+    padding: 24px 28px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  .act-badge {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: var(--act-color);
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--act-color);
+    padding: 4px 10px;
+    border-radius: 4px;
+    text-shadow: 0 0 12px var(--act-color);
+    flex-shrink: 0;
+  }
+
+  .act-title-block { flex: 1; }
+  .act-title {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--text);
+    line-height: 1;
+    letter-spacing: -0.5px;
+  }
+  .act-subtitle {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 3px;
+    font-family: 'Space Mono', monospace;
+    letter-spacing: 1px;
+  }
+
+  .act-nav-btns {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+  .nav-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 16px;
+    cursor: pointer;
+    border-radius: 4px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    transition: all .2s;
+    letter-spacing: 1px;
+  }
+  .nav-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .nav-btn.mark-done {
+    background: rgba(0,255,136,0.08);
+    border-color: var(--green);
+    color: var(--green);
+  }
+  .nav-btn.mark-done:hover {
+    background: var(--green);
+    color: #000;
+  }
+
+  /* STEPS */
+  .steps-container {
+    padding: 20px 28px 60px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .step-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    transition: all .2s;
+    cursor: pointer;
+  }
+
+  .step-card:hover { border-color: rgba(255,255,255,0.15); }
+  .step-card.expanded { border-color: var(--act-color); }
+
+  .step-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    user-select: none;
+  }
+
+  .step-num {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--act-color);
+    background: rgba(255,255,255,0.04);
+    padding: 3px 8px;
+    border-radius: 3px;
+    flex-shrink: 0;
+    letter-spacing: 1px;
+  }
+
+  .step-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+    flex: 1;
+  }
+
+  .step-tag {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    padding: 2px 8px;
+    border-radius: 3px;
+    letter-spacing: 1px;
+    flex-shrink: 0;
+  }
+  .tag-mustdo { background: rgba(255,61,113,0.15); color: var(--accent2); border: 1px solid rgba(255,61,113,0.3); }
+  .tag-rebuttal { background: rgba(255,230,0,0.1); color: var(--accent3); border: 1px solid rgba(255,230,0,0.3); }
+  .tag-branch { background: rgba(0,229,255,0.08); color: var(--accent); border: 1px solid rgba(0,229,255,0.2); }
+  .tag-tip { background: rgba(0,255,136,0.08); color: var(--green); border: 1px solid rgba(0,255,136,0.2); }
+
+  .step-chevron {
+    color: var(--muted);
+    font-size: 12px;
+    transition: transform .2s;
+    flex-shrink: 0;
+  }
+  .step-card.expanded .step-chevron { transform: rotate(90deg); }
+
+  .step-body {
+    display: none;
+    padding: 0 18px 18px;
+    border-top: 1px solid var(--border);
+  }
+  .step-card.expanded .step-body { display: block; }
+
+  /* SCRIPT LINES */
+  .script-line {
+    background: rgba(0,229,255,0.04);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 4px 4px 0;
+    padding: 10px 14px;
+    margin: 10px 0;
+    font-size: 14px;
+    line-height: 1.65;
+    color: #d0e8ff;
+    font-style: normal;
+  }
+
+  .script-line .placeholder {
+    color: var(--accent3);
+    background: rgba(255,230,0,0.12);
+    padding: 0 4px;
+    border-radius: 3px;
+    font-style: normal;
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+  }
+
+  /* INSTRUCTION / NOTE */
+  .note {
+    background: rgba(255,255,255,0.03);
+    border-left: 3px solid var(--muted);
+    border-radius: 0 4px 4px 0;
+    padding: 8px 14px;
+    margin: 8px 0;
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.6;
+    font-family: 'Space Mono', monospace;
+  }
+
+  /* REBUTTAL BLOCK */
+  .rebuttal-block {
+    background: rgba(255,230,0,0.04);
+    border: 1px solid rgba(255,230,0,0.2);
+    border-radius: 6px;
+    padding: 12px 14px;
+    margin: 10px 0;
+  }
+  .rebuttal-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    color: var(--accent3);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .rebuttal-block .script-line {
+    border-color: var(--accent3);
+    background: rgba(255,230,0,0.04);
+    color: #fff7cc;
+    margin: 6px 0;
+  }
+
+  /* BRANCH BLOCK */
+  .branch-block {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin: 10px 0;
+  }
+  .branch-option {
+    background: rgba(0,229,255,0.04);
+    border: 1px solid rgba(0,229,255,0.15);
+    border-radius: 6px;
+    padding: 10px 12px;
+  }
+  .branch-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    color: var(--accent);
+    letter-spacing: 2px;
+    margin-bottom: 6px;
+    display: block;
+  }
+  .branch-option .script-line {
+    margin: 4px 0;
+    font-size: 13px;
+  }
+  .branch-option.alt { background: rgba(255,61,113,0.04); border-color: rgba(255,61,113,0.15); }
+  .branch-option.alt .branch-label { color: var(--accent2); }
+  .branch-option.alt .script-line { border-color: var(--accent2); color: #ffd0d8; }
+
+  /* CHECKLIST */
+  .checklist { margin: 10px 0; }
+  .check-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 7px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .check-item:last-child { border-bottom: none; }
+  .check-box {
+    width: 18px; height: 18px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    margin-top: 1px;
+    transition: all .2s;
+    font-size: 10px;
+  }
+  .check-item.checked .check-box {
+    background: var(--green);
+    border-color: var(--green);
+    color: #000;
+  }
+  .check-item.checked .check-text { text-decoration: line-through; color: var(--muted); }
+  .check-text { font-size: 13px; line-height: 1.5; }
+
+  /* CHECKPOINT BLOCK — non-negotiables */
+  .checkpoint-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin: 10px 0;
+  }
+  .checkpoint-item {
+    background: rgba(255,61,113,0.06);
+    border: 1px solid rgba(255,61,113,0.2);
+    border-radius: 6px;
+    padding: 10px 12px;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    cursor: pointer;
+    transition: all .2s;
+  }
+  .checkpoint-item.checked {
+    background: rgba(0,255,136,0.06);
+    border-color: rgba(0,255,136,0.3);
+  }
+  .cp-num {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--accent2);
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .checkpoint-item.checked .cp-num { color: var(--green); }
+  .cp-text { font-size: 12px; line-height: 1.5; color: var(--text); }
+
+  /* QA QUESTIONS */
+  .qa-item {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px 14px;
+    margin: 8px 0;
+    cursor: pointer;
+    transition: all .2s;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 12px;
+    align-items: start;
+  }
+  .qa-item:hover { border-color: rgba(255,255,255,0.15); }
+  .qa-item.checked { border-color: var(--green); background: rgba(0,255,136,0.04); }
+  .qa-q { font-size: 12px; color: var(--muted); margin-bottom: 5px; font-family: 'Space Mono', monospace; }
+  .qa-answer { font-size: 13px; color: var(--text); }
+  .qa-badge {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 3px;
+    flex-shrink: 0;
+    align-self: start;
+  }
+  .qa-yes { background: rgba(0,255,136,0.12); color: var(--green); }
+  .qa-no { background: rgba(255,61,113,0.12); color: var(--accent2); }
+
+  /* SECTION TITLE */
+  .section-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin: 16px 0 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* FLASH MESSAGE */
+  .flash {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--surface);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    padding: 10px 18px;
+    border-radius: 6px;
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 1px;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all .3s;
+    z-index: 9998;
+    pointer-events: none;
+  }
+  .flash.show { opacity: 1; transform: translateY(0); }
+
+  /* KEYBOARD SHORTCUT OVERLAY */
+  .shortcut-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    z-index: 1000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+  }
+  .shortcut-overlay.visible { display: flex; }
+  .shortcut-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 32px;
+    max-width: 480px;
+    width: 90%;
+  }
+  .shortcut-title {
+    font-size: 18px;
+    font-weight: 800;
+    margin-bottom: 20px;
+    color: var(--accent);
+  }
+  .shortcut-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+  .shortcut-row:last-child { border-bottom: none; }
+  .shortcut-keys { display: flex; gap: 6px; }
+  .shortcut-keys kbd {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--accent3);
+  }
+  .shortcut-close {
+    display: block;
+    margin-top: 20px;
+    text-align: center;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    cursor: pointer;
+  }
+
+  /* FOCUS MODE */
+  .main {
+    transition: grid-template-columns .3s ease;
+  }
+  .main.focus-mode {
+    grid-template-columns: 0px 1fr;
+  }
+  .main.focus-mode .sidebar {
+    overflow: hidden;
+    padding: 0;
+    border-right: none;
+    width: 0;
+  }
+  .focus-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 6px 12px;
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all .2s;
+    letter-spacing: 1px;
+  }
+  .focus-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .focus-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(0,229,255,0.08); }
+
+  /* STEP DONE STATE */
+  .step-card.step-done {
+    opacity: 0.55;
+    border-color: rgba(0,255,136,0.25) !important;
+  }
+  .step-card.step-done .step-header { background: rgba(0,255,136,0.03); }
+  .step-card.step-done .step-title { text-decoration: line-through; color: var(--muted); }
+  .step-done-badge {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    color: var(--green);
+    background: rgba(0,255,136,0.1);
+    border: 1px solid rgba(0,255,136,0.3);
+    padding: 2px 7px;
+    border-radius: 3px;
+    flex-shrink: 0;
+    display: none;
+  }
+  .step-card.step-done .step-done-badge { display: inline-block; }
+  .step-mark-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 3px 9px;
+    border-radius: 3px;
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    cursor: pointer;
+    transition: all .2s;
+    letter-spacing: 1px;
+    flex-shrink: 0;
+  }
+  .step-mark-btn:hover { border-color: var(--green); color: var(--green); }
+  .step-card.step-done .step-mark-btn {
+    border-color: rgba(255,61,113,0.3);
+    color: var(--accent2);
+  }
+  .step-card.step-done .step-mark-btn:hover {
+    border-color: var(--accent2);
+    background: rgba(255,61,113,0.08);
+  }
+
+  /* NOTES PANEL */
+  .notes-panel {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    width: 320px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+    z-index: 500;
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+    animation: noteSlide .2s ease;
+  }
+  .notes-panel.open { display: flex; }
+  @keyframes noteSlide {
+    from { opacity: 0; transform: translateY(12px) scale(0.97); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .notes-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+  }
+  .notes-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--accent3);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+  .notes-close {
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+    padding: 0 4px;
+    transition: color .2s;
+  }
+  .notes-close:hover { color: var(--text); }
+  .notes-textarea {
+    background: transparent;
+    border: none;
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    line-height: 1.7;
+    padding: 14px;
+    resize: none;
+    outline: none;
+    min-height: 180px;
+    max-height: 340px;
+  }
+  .notes-textarea::placeholder { color: var(--muted); }
+  .notes-footer {
+    padding: 8px 14px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .notes-char {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 1px;
+  }
+  .notes-clear {
+    background: transparent;
+    border: 1px solid rgba(255,61,113,0.25);
+    color: var(--accent2);
+    padding: 3px 10px;
+    border-radius: 3px;
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: all .2s;
+  }
+  .notes-clear:hover { background: rgba(255,61,113,0.1); }
+  .notes-fab {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--surface);
+    border: 1px solid var(--accent3);
+    color: var(--accent3);
+    width: 42px; height: 42px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    font-size: 16px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    z-index: 499;
+    transition: all .2s;
+    font-family: 'Space Mono', monospace;
+  }
+  .notes-fab:hover { background: rgba(255,230,0,0.1); transform: scale(1.08); }
+  .notes-fab.hidden { display: none; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+  /* Mobile note */
+  .divider { height: 1px; background: var(--border); margin: 10px 0; }
+</style>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --navy: #0F1F35;
+    --navy-soft: #1A2B45;
+    --blue: #3B89E8;
+    --blue-dark: #2E78D2;
+    --teal: #44D9A6;
+    --teal-light: #5EEAD4;
+    --red: #EF4444;
+    --red-soft: #FEE2E2;
+    --amber: #F59E0B;
+    --amber-soft: #FEF3C7;
+    --gray-50: #F8FAFC;
+    --gray-100: #F1F5F9;
+    --gray-200: #E2E8F0;
+    --gray-300: #CBD5E1;
+    --gray-500: #94A3B8;
+    --gray-700: #475569;
+    --gray-900: #1E293B;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+    --shadow: 0 2px 8px rgba(0,0,0,0.06);
+    --shadow-lg: 0 10px 30px rgba(0,0,0,0.12);
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+
+  html, body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+    background: var(--gray-50);
+    color: var(--gray-900);
+    line-height: 1.5;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* HEADER */
+  header {
+    background: var(--navy);
+    color: white;
+    padding: 14px 20px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: var(--shadow);
+  }
+  .header-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .brand-mark {
+    width: 34px;
+    height: 34px;
+    flex-shrink: 0;
+  }
+  .brand-text {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.1;
+  }
+  .brand-logo {
+    font-size: 18px;
+    font-weight: 700;
+    color: white;
+    letter-spacing: -0.3px;
+  }
+  .brand-tag {
+    font-size: 9px;
+    color: var(--teal-light);
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    font-weight: 600;
+    margin-top: 2px;
+  }
+  .search-wrap {
+    flex: 1;
+    min-width: 220px;
+    position: relative;
+  }
+  .search-input {
+    width: 100%;
+    padding: 11px 16px 11px 42px;
+    background: var(--navy-soft);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: var(--radius-sm);
+    color: white;
+    font-size: 14px;
+    outline: none;
+    transition: all 0.15s;
+  }
+  .search-input::placeholder { color: rgba(255,255,255,0.45); }
+  .search-input:focus {
+    border-color: var(--blue);
+    background: var(--navy);
+  }
+  .search-icon {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: rgba(255,255,255,0.5);
+    font-size: 16px;
+    pointer-events: none;
+  }
+  .howto-btn {
+    background: transparent;
+    color: var(--blue);
+    border: 1px solid var(--blue);
+    padding: 9px 16px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s;
+  }
+  .howto-btn:hover { background: var(--blue); color: var(--navy); }
+  .howto-btn.urgent::before {
+    content: "❗";
+    margin-right: 4px;
+  }
+
+  /* MAIN */
+  main {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 24px 20px 80px;
+  }
+
+  /* STAGES GRID VIEW */
+  .stages-intro {
+    margin-bottom: 24px;
+    text-align: center;
+  }
+  .stages-intro h1 {
+    font-size: 24px;
+    color: var(--navy);
+    margin-bottom: 4px;
+    font-weight: 800;
+  }
+  .stages-intro p {
+    color: var(--gray-700);
+    font-size: 14px;
+  }
+  .stages-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+  }
+  .stage-card {
+    background: white;
+    border-radius: var(--radius);
+    padding: 22px 22px 20px;
+    box-shadow: var(--shadow);
+    cursor: pointer;
+    transition: all 0.2s;
+    border-left: 5px solid var(--blue);
+    position: relative;
+    overflow: hidden;
+  }
+  .stage-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+  }
+  .stage-card .num {
+    font-size: 11px;
+    color: var(--gray-500);
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    margin-bottom: 6px;
+  }
+  .stage-card .title {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--navy);
+    margin-bottom: 6px;
+    letter-spacing: -0.3px;
+  }
+  .stage-card .subtitle {
+    font-size: 13px;
+    color: var(--gray-700);
+    margin-bottom: 14px;
+    line-height: 1.4;
+  }
+  .stage-card .count {
+    display: inline-flex;
+    align-items: center;
+    background: var(--gray-100);
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    color: var(--gray-700);
+    font-weight: 600;
+  }
+  .stage-card .count strong {
+    color: var(--navy);
+    margin-right: 4px;
+  }
+  .stage-card .flagged-badge {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    background: var(--red-soft);
+    color: var(--red);
+    padding: 3px 8px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+  }
+
+  /* Color variants for stages */
+  .stage-card[data-stage="1"] { border-left-color: var(--blue); }
+  .stage-card[data-stage="2"] { border-left-color: #9B59B6; }
+  .stage-card[data-stage="3"] { border-left-color: var(--teal-light); }
+  .stage-card[data-stage="4"] { border-left-color: var(--amber); }
+  .stage-card[data-stage="5"] { border-left-color: #F1C40F; }
+  .stage-card[data-stage="6"] { border-left-color: #E91E63; }
+  .stage-card[data-stage="7"] { border-left-color: var(--teal); }
+  .stage-card[data-stage="8"] { border-left-color: var(--red); }
+
+  /* STAGE DETAIL VIEW */
+  .back-btn {
+    background: transparent;
+    border: none;
+    color: var(--navy);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 8px 0;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .back-btn:hover { color: var(--blue); }
+
+  .stage-header {
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 2px solid var(--blue);
+  }
+  .stage-header h1 {
+    font-size: 24px;
+    color: var(--navy);
+    margin-bottom: 4px;
+    font-weight: 800;
+  }
+  .stage-header p {
+    color: var(--gray-700);
+    font-size: 14px;
+  }
+
+  .cluster {
+    margin-bottom: 28px;
+  }
+  .cluster-name {
+    font-size: 13px;
+    color: var(--teal);
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 10px;
+    padding-left: 4px;
+  }
+  .obj-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .obj-card {
+    background: white;
+    padding: 14px 16px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.15s;
+    border: 1px solid var(--gray-200);
+    border-left: 4px solid var(--blue);
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .obj-card:hover {
+    box-shadow: var(--shadow);
+    transform: translateX(2px);
+    border-left-color: var(--navy);
+  }
+  .obj-card.flagged {
+    border-left-color: var(--red);
+    background: var(--red-soft);
+  }
+  .obj-card.flagged:hover {
+    border-left-color: var(--red);
+  }
+  .obj-id {
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--gray-500);
+    flex-shrink: 0;
+    width: 36px;
+    padding-top: 1px;
+  }
+  .obj-card.flagged .obj-id { color: var(--red); }
+  .obj-text {
+    flex: 1;
+    font-size: 14px;
+    color: var(--navy);
+    line-height: 1.45;
+  }
+  .obj-text .star {
+    color: var(--red);
+    margin-right: 4px;
+  }
+  .obj-card .arrow {
+    color: var(--gray-300);
+    font-size: 18px;
+    flex-shrink: 0;
+    transition: transform 0.15s;
+  }
+  .obj-card:hover .arrow {
+    color: var(--blue);
+    transform: translateX(2px);
+  }
+
+  /* MODAL (objection detail) */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(26, 26, 46, 0.6);
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+  }
+  .modal-backdrop.open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .modal {
+    background: white;
+    border-radius: var(--radius);
+    max-width: 720px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: var(--shadow-lg);
+    transform: scale(0.95);
+    transition: transform 0.2s;
+    border-top: 6px solid var(--blue);
+  }
+  .modal-backdrop.open .modal {
+    transform: scale(1);
+  }
+  .modal.flagged {
+    border-top-color: var(--red);
+  }
+  .modal-header {
+    padding: 22px 24px 16px;
+    border-bottom: 1px solid var(--gray-200);
+    position: sticky;
+    top: 0;
+    background: white;
+    border-radius: var(--radius) var(--radius) 0 0;
+  }
+  .modal-id-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+  }
+  .modal-id {
+    background: var(--navy);
+    color: white;
+    padding: 3px 10px;
+    border-radius: 5px;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+  }
+  .modal.flagged .modal-id { background: var(--red); }
+  .modal-stage {
+    font-size: 11px;
+    color: var(--gray-500);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+  }
+  .modal-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    background: var(--gray-100);
+    border: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    cursor: pointer;
+    color: var(--gray-700);
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+  }
+  .modal-close:hover { background: var(--gray-200); }
+  .modal-objection {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--navy);
+    line-height: 1.4;
+    margin-top: 8px;
+  }
+  .modal-flag {
+    background: var(--red-soft);
+    color: var(--red);
+    padding: 10px 14px;
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    font-weight: 700;
+    margin: 12px 0 0;
+    border-left: 3px solid var(--red);
+  }
+  .modal-note {
+    background: var(--amber-soft);
+    color: var(--gray-700);
+    padding: 10px 14px;
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    font-weight: 700;
+    margin: 12px 0 0;
+    border-left: 3px solid var(--amber);
+  }
+  .modal-body {
+    padding: 20px 24px 24px;
+  }
+  .section {
+    margin-bottom: 20px;
+  }
+  .section:last-child { margin-bottom: 0; }
+  .section-label {
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--gray-500);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+  }
+  .section-label.bridge {
+    color: var(--teal);
+  }
+  .rebuttal-text {
+    background: var(--gray-50);
+    padding: 16px 18px;
+    border-radius: var(--radius-sm);
+    border-left: 3px solid var(--gray-300);
+    color: var(--navy);
+    font-size: 15px;
+    line-height: 1.6;
+    font-style: italic;
+  }
+  .bridge-text {
+    background: rgba(68, 217, 166, 0.10);
+    padding: 14px 18px;
+    border-radius: var(--radius-sm);
+    border-left: 3px solid var(--teal);
+    color: var(--navy);
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1.5;
+  }
+  .bridge-text.continue {
+    font-weight: 400;
+    font-style: italic;
+    color: var(--gray-700);
+  }
+  .fallback-divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 24px 0 16px;
+    color: var(--teal);
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .fallback-divider::before,
+  .fallback-divider::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--teal);
+    opacity: 0.3;
+  }
+
+  /* Search tags at modal bottom */
+  .search-tags {
+    margin-top: 20px;
+    padding-top: 14px;
+    border-top: 1px dashed var(--gray-200);
+  }
+  .search-tags .tag-label {
+    font-size: 10px;
+    font-weight: 800;
+    color: var(--gray-500);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-right: 8px;
+  }
+  .search-tags .tag {
+    display: inline-block;
+    background: var(--gray-100);
+    color: var(--gray-700);
+    padding: 3px 9px;
+    border-radius: 11px;
+    margin: 0 4px 4px 0;
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  /* SEARCH RESULTS */
+  .search-results-header {
+    margin-bottom: 16px;
+    color: var(--gray-700);
+    font-size: 14px;
+  }
+  .search-results-header strong { color: var(--navy); }
+
+  .search-empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--gray-500);
+  }
+  .search-empty .icon { font-size: 48px; margin-bottom: 10px; opacity: 0.4; }
+
+  /* HOW-TO PAGE */
+  .howto-page {
+    max-width: 760px;
+    margin: 0 auto;
+  }
+  .howto-page h1 {
+    font-size: 28px;
+    color: var(--navy);
+    font-weight: 800;
+    margin-bottom: 6px;
+  }
+  .howto-page .subtitle {
+    color: var(--red);
+    font-size: 14px;
+    font-weight: 700;
+    font-style: italic;
+    margin-bottom: 20px;
+  }
+  .howto-page h2 {
+    font-size: 18px;
+    color: var(--navy);
+    font-weight: 800;
+    margin: 28px 0 12px;
+  }
+  .howto-page h2.danger { color: var(--red); }
+  .howto-page h2.good { color: var(--teal); }
+  .howto-page p {
+    color: var(--gray-700);
+    font-size: 15px;
+    line-height: 1.6;
+    margin-bottom: 12px;
+  }
+  .howto-page p strong { color: var(--navy); }
+  .howto-page p.alert {
+    color: var(--red);
+    font-weight: 700;
+    background: var(--red-soft);
+    padding: 12px 16px;
+    border-radius: var(--radius-sm);
+    border-left: 3px solid var(--red);
+  }
+  .howto-example {
+    background: #EFF6FF;
+    padding: 14px 18px;
+    border-radius: var(--radius-sm);
+    border-left: 3px solid var(--blue);
+    font-size: 14px;
+    line-height: 1.6;
+    margin: 12px 0;
+    color: var(--navy);
+  }
+  .howto-example.bad {
+    background: var(--red-soft);
+    border-left-color: var(--red);
+  }
+  .howto-example .lbl {
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--blue);
+    letter-spacing: 0.8px;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+  }
+  .howto-example.bad .lbl { color: var(--red); }
+  .howto-page ul {
+    list-style: none;
+    margin: 8px 0;
+  }
+  .howto-page ul li {
+    padding: 6px 0 6px 24px;
+    position: relative;
+    color: var(--gray-700);
+    font-size: 14px;
+  }
+  .howto-page ul li::before {
+    content: "•";
+    color: var(--blue);
+    font-weight: 800;
+    position: absolute;
+    left: 8px;
+    font-size: 16px;
+  }
+  .howto-page ul.quotes li::before {
+    content: "”";
+    font-size: 22px;
+    top: 0;
+  }
+  .howto-mindset {
+    margin: 28px 0;
+    text-align: center;
+    padding: 24px;
+    background: var(--navy);
+    color: white;
+    border-radius: var(--radius);
+  }
+  .howto-mindset .line {
+    font-size: 16px;
+    margin: 6px 0;
+  }
+  .howto-mindset .line strong { color: var(--blue); font-size: 18px; }
+
+  /* Footer */
+  .footer {
+    text-align: center;
+    color: var(--gray-500);
+    font-size: 11px;
+    padding: 40px 20px 20px;
+    letter-spacing: 0.5px;
+  }
+  .footer strong { color: var(--navy); }
+
+  /* Mobile tweaks */
+  @media (max-width: 640px) {
+    .header-inner { gap: 10px; }
+    .brand-tag { display: none; }
+    .howto-btn { padding: 9px 12px; font-size: 12px; }
+    main { padding: 16px 14px 60px; }
+    .stages-grid { grid-template-columns: 1fr; gap: 12px; }
+    .stage-card { padding: 18px; }
+    .modal-backdrop { padding: 0; align-items: stretch; }
+    .modal { border-radius: 0; max-height: 100vh; }
+    .obj-text { font-size: 14px; }
+    .rebuttal-text, .bridge-text { font-size: 14px; padding: 14px; }
+  }
+</style><style>
+@media (max-width: 768px) {
+  .main {
+    grid-template-columns: 1fr;
+  }
+  .sidebar {
+    display: none; /* Or make it a collapsible menu */
+  }
+  .topbar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .search-wrap {
+    margin-left: 0 !important;
+    max-width: 100% !important;
+    width: 100%;
+  }
+  .timer-block {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+</style><style>/* ============================================
+   MOBILE RESPONSIVENESS ENHANCEMENTS
+   For iPhone, Samsung, and other mobile devices
+   ============================================ */
+
+/* TABLET & SMALL DESKTOP (768px and below) */
+@media (max-width: 768px) {
+  /* Adjust main layout */
+  .main {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+
+  /* Hide sidebar on tablets, show as collapsible */
+  .sidebar {
+    display: none;
+    position: fixed;
+    left: 0;
+    top: 53px;
+    width: 100%;
+    max-width: 260px;
+    height: calc(100vh - 53px);
+    z-index: 50;
+    border-right: 1px solid var(--border);
+  }
+
+  .sidebar.open {
+    display: flex;
+  }
+
+  /* Adjust topbar for mobile */
+  .topbar {
+    flex-wrap: wrap;
+    padding: 8px 12px;
+    gap: 8px;
+  }
+
+  .logo {
+    font-size: 11px;
+    letter-spacing: 1px;
+  }
+
+  .timer-block {
+    gap: 10px;
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .call-timer {
+    font-size: 18px;
+    letter-spacing: 2px;
+  }
+
+  .timer-btns button {
+    padding: 5px 10px;
+    font-size: 10px;
+  }
+
+  .hotkey-hint {
+    display: none;
+  }
+
+  /* Adjust content area */
+  .content {
+    width: 100%;
+    height: auto;
+    overflow-y: auto;
+  }
+
+  /* Adjust steps container */
+  .steps-container {
+    padding: 12px 14px 40px;
+    gap: 8px;
+  }
+
+  .step-card {
+    border-radius: 6px;
+  }
+
+  .step-header {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  .step-num {
+    font-size: 9px;
+    padding: 2px 6px;
+  }
+
+  .step-title {
+    font-size: 13px;
+  }
+
+  .step-tag {
+    font-size: 8px;
+    padding: 2px 6px;
+  }
+
+  .step-chevron {
+    font-size: 11px;
+  }
+
+  .step-body {
+    padding: 0 12px 12px;
+  }
+
+  /* Adjust script lines */
+  .script-line {
+    padding: 8px 10px;
+    margin: 8px 0;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .script-line .placeholder {
+    font-size: 11px;
+  }
+
+  /* Adjust notes */
+  .note {
+    padding: 6px 10px;
+    margin: 6px 0;
+    font-size: 11px;
+  }
+
+  /* Adjust rebuttal blocks */
+  .rebuttal-block {
+    padding: 10px 12px;
+    margin: 8px 0;
+  }
+
+  .rebuttal-label {
+    font-size: 8px;
+    margin-bottom: 6px;
+  }
+
+  /* Adjust branch blocks */
+  .branch-block {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    margin: 8px 0;
+  }
+
+  .branch-option {
+    padding: 8px 10px;
+  }
+
+  .branch-label {
+    font-size: 8px;
+    margin-bottom: 4px;
+  }
+
+  .branch-option .script-line {
+    font-size: 12px;
+    margin: 3px 0;
+  }
+
+  /* Act header adjustments */
+  .act-header {
+    padding: 16px 14px 12px;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .act-badge {
+    font-size: 10px;
+    padding: 3px 8px;
+  }
+
+  .act-title {
+    font-size: 18px;
+  }
+
+  .act-subtitle {
+    font-size: 11px;
+  }
+
+  .act-nav-btns {
+    gap: 6px;
+    width: 100%;
+  }
+
+  .nav-btn {
+    padding: 6px 12px;
+    font-size: 10px;
+    flex: 1;
+  }
+
+  /* Search wrap adjustments */
+  .search-wrap {
+    margin-left: 0 !important;
+    max-width: 100% !important;
+    width: 100%;
+    flex: 1;
+    min-width: 200px;
+  }
+
+  .search-input {
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+
+  /* Modal adjustments */
+  .modal-backdrop {
+    padding: 10px;
+    align-items: flex-end;
+  }
+
+  .modal {
+    border-radius: 12px 12px 0 0;
+    max-height: 80vh;
+    max-width: 100%;
+    width: 100%;
+  }
+
+  .modal-header {
+    padding: 16px 14px 12px;
+  }
+
+  .modal-id {
+    font-size: 11px;
+    padding: 2px 8px;
+  }
+
+  .modal-stage {
+    font-size: 10px;
+  }
+
+  .modal-objection {
+    font-size: 16px;
+  }
+
+  .modal-body {
+    padding: 14px 12px 16px;
+  }
+
+  .rebuttal-text {
+    font-size: 14px;
+    padding: 12px 14px;
+  }
+
+  .bridge-text {
+    font-size: 14px;
+    padding: 12px 14px;
+  }
+
+  .section-label {
+    font-size: 10px;
+  }
+
+  .search-tags {
+    margin-top: 12px;
+    padding-top: 10px;
+  }
+
+  .search-tags .tag {
+    font-size: 10px;
+    padding: 2px 8px;
+  }
+
+  /* Progress bar adjustments */
+  .progress-wrap {
+    padding: 12px 8px 6px;
+  }
+
+  .progress-label {
+    font-size: 9px;
+    margin-bottom: 4px;
+  }
+
+  .progress-bar {
+    height: 3px;
+  }
+
+  /* Sidebar buttons adjustments */
+  .act-btn {
+    padding: 8px 10px;
+    gap: 8px;
+  }
+
+  .act-name {
+    font-size: 12px;
+  }
+
+  .act-sub {
+    font-size: 9px;
+  }
+
+  .act-num {
+    font-size: 9px;
+    padding: 2px 6px;
+  }
+}
+
+/* MOBILE PHONES (480px and below) */
+@media (max-width: 480px) {
+  /* Topbar */
+  .topbar {
+    padding: 6px 10px;
+    gap: 6px;
+  }
+
+  .logo {
+    font-size: 10px;
+    letter-spacing: 0.5px;
+  }
+
+  .timer-block {
+    width: 100%;
+    gap: 6px;
+  }
+
+  .call-timer {
+    font-size: 16px;
+    letter-spacing: 1px;
+  }
+
+  .timer-btns {
+    gap: 4px;
+  }
+
+  .timer-btns button {
+    padding: 4px 8px;
+    font-size: 9px;
+  }
+
+  /* Main layout */
+  .main {
+    height: auto;
+  }
+
+  .content {
+    width: 100%;
+  }
+
+  /* Steps container */
+  .steps-container {
+    padding: 10px 10px 30px;
+    gap: 6px;
+  }
+
+  .step-card {
+    border-radius: 5px;
+  }
+
+  .step-header {
+    padding: 8px 10px;
+    gap: 6px;
+  }
+
+  .step-num {
+    font-size: 8px;
+    padding: 2px 5px;
+  }
+
+  .step-title {
+    font-size: 12px;
+  }
+
+  .step-tag {
+    font-size: 7px;
+    padding: 1px 5px;
+  }
+
+  .step-chevron {
+    font-size: 10px;
+  }
+
+  .step-body {
+    padding: 0 10px 10px;
+  }
+
+  /* Script lines */
+  .script-line {
+    padding: 6px 8px;
+    margin: 6px 0;
+    font-size: 12px;
+    line-height: 1.4;
+  }
+
+  .script-line .placeholder {
+    font-size: 10px;
+    padding: 0 2px;
+  }
+
+  /* Notes */
+  .note {
+    padding: 5px 8px;
+    margin: 5px 0;
+    font-size: 10px;
+  }
+
+  /* Rebuttal blocks */
+  .rebuttal-block {
+    padding: 8px 10px;
+    margin: 6px 0;
+  }
+
+  .rebuttal-label {
+    font-size: 7px;
+    margin-bottom: 4px;
+  }
+
+  .rebuttal-block .script-line {
+    margin: 3px 0;
+    font-size: 11px;
+  }
+
+  /* Branch blocks */
+  .branch-block {
+    grid-template-columns: 1fr;
+    gap: 6px;
+    margin: 6px 0;
+  }
+
+  .branch-option {
+    padding: 6px 8px;
+  }
+
+  .branch-label {
+    font-size: 7px;
+    margin-bottom: 3px;
+  }
+
+  .branch-option .script-line {
+    font-size: 11px;
+    margin: 2px 0;
+  }
+
+  /* Act header */
+  .act-header {
+    padding: 12px 10px 8px;
+    gap: 8px;
+  }
+
+  .act-badge {
+    font-size: 9px;
+    padding: 2px 6px;
+  }
+
+  .act-title {
+    font-size: 16px;
+  }
+
+  .act-subtitle {
+    font-size: 10px;
+  }
+
+  .act-nav-btns {
+    gap: 4px;
+    width: 100%;
+  }
+
+  .nav-btn {
+    padding: 5px 10px;
+    font-size: 9px;
+    flex: 1;
+  }
+
+  /* Search wrap */
+  .search-wrap {
+    margin-left: 0 !important;
+    max-width: 100% !important;
+    width: 100%;
+  }
+
+  .search-input {
+    padding: 6px 8px;
+    font-size: 12px;
+  }
+
+  /* Modal */
+  .modal-backdrop {
+    padding: 0;
+    align-items: stretch;
+  }
+
+  .modal {
+    border-radius: 12px 12px 0 0;
+    max-height: 85vh;
+    width: 100%;
+  }
+
+  .modal-header {
+    padding: 12px 10px 8px;
+  }
+
+  .modal-close {
+    width: 28px;
+    height: 28px;
+    font-size: 16px;
+    top: 10px;
+    right: 10px;
+  }
+
+  .modal-id {
+    font-size: 10px;
+    padding: 2px 6px;
+  }
+
+  .modal-stage {
+    font-size: 9px;
+  }
+
+  .modal-objection {
+    font-size: 14px;
+    margin-top: 6px;
+  }
+
+  .modal-flag {
+    font-size: 11px;
+    padding: 8px 10px;
+    margin: 8px 0 0;
+  }
+
+  .modal-note {
+    font-size: 11px;
+    padding: 8px 10px;
+    margin: 8px 0 0;
+  }
+
+  .modal-body {
+    padding: 10px 8px 12px;
+  }
+
+  .section {
+    margin-bottom: 12px;
+  }
+
+  .section-label {
+    font-size: 9px;
+    margin-bottom: 6px;
+  }
+
+  .rebuttal-text {
+    font-size: 13px;
+    padding: 10px 12px;
+  }
+
+  .bridge-text {
+    font-size: 13px;
+    padding: 10px 12px;
+  }
+
+  .fallback-divider {
+    font-size: 11px;
+    margin: 16px 0 12px;
+    gap: 10px;
+  }
+
+  .search-tags {
+    margin-top: 10px;
+    padding-top: 8px;
+  }
+
+  .search-tags .tag-label {
+    font-size: 9px;
+  }
+
+  .search-tags .tag {
+    font-size: 9px;
+    padding: 2px 6px;
+    margin: 0 3px 3px 0;
+  }
+
+  /* Sidebar */
+  .sidebar {
+    max-width: 100%;
+  }
+
+  .sidebar-label {
+    font-size: 8px;
+    padding: 0 6px 6px;
+  }
+
+  .act-btn {
+    padding: 6px 8px;
+    gap: 6px;
+  }
+
+  .act-name {
+    font-size: 11px;
+  }
+
+  .act-sub {
+    font-size: 8px;
+  }
+
+  .act-num {
+    font-size: 8px;
+    padding: 1px 5px;
+  }
+
+  .act-done {
+    width: 14px;
+    height: 14px;
+    font-size: 8px;
+  }
+
+  /* Progress bar */
+  .progress-wrap {
+    padding: 10px 6px 4px;
+  }
+
+  .progress-label {
+    font-size: 8px;
+    margin-bottom: 3px;
+  }
+
+  .progress-bar {
+    height: 2px;
+  }
+
+  /* Checklist */
+  .checklist {
+    margin: 6px 0;
+  }
+
+  .checklist-item {
+    padding: 4px 0;
+    font-size: 12px;
+  }
+
+  .checklist-item input {
+    width: 16px;
+    height: 16px;
+    margin-right: 6px;
+  }
+}
+
+/* VERY SMALL PHONES (under 360px) */
+@media (max-width: 360px) {
+  .topbar {
+    padding: 4px 8px;
+  }
+
+  .logo {
+    font-size: 9px;
+  }
+
+  .call-timer {
+    font-size: 14px;
+  }
+
+  .timer-btns button {
+    padding: 3px 6px;
+    font-size: 8px;
+  }
+
+  .steps-container {
+    padding: 8px 8px 25px;
+  }
+
+  .step-header {
+    padding: 6px 8px;
+  }
+
+  .step-title {
+    font-size: 11px;
+  }
+
+  .script-line {
+    padding: 5px 6px;
+    font-size: 11px;
+  }
+
+  .note {
+    padding: 4px 6px;
+    font-size: 9px;
+  }
+
+  .act-header {
+    padding: 10px 8px 6px;
+  }
+
+  .act-title {
+    font-size: 14px;
+  }
+
+  .nav-btn {
+    padding: 4px 8px;
+    font-size: 8px;
+  }
+
+  .modal-objection {
+    font-size: 13px;
+  }
+
+  .rebuttal-text,
+  .bridge-text {
+    font-size: 12px;
+    padding: 8px 10px;
+  }
+}
+
+/* LANDSCAPE MODE (any device) */
+@media (max-height: 500px) and (orientation: landscape) {
+  .topbar {
+    padding: 6px 12px;
+  }
+
+  .call-timer {
+    font-size: 16px;
+  }
+
+  .steps-container {
+    padding: 10px 14px 20px;
+  }
+
+  .step-header {
+    padding: 8px 12px;
+  }
+
+  .step-body {
+    padding: 0 12px 8px;
+  }
+
+  .script-line {
+    margin: 4px 0;
+    font-size: 12px;
+  }
+
+  .note {
+    margin: 4px 0;
+    font-size: 10px;
+  }
+
+  .modal {
+    max-height: 90vh;
+  }
+
+  .modal-body {
+    max-height: 50vh;
+    overflow-y: auto;
+  }
+}
+</style>
+<style>
+.sidebar-toggle {
+  z-index: 101 !important;
+}
+
+@media (max-width: 768px) {
+  .sidebar-toggle {
+    display: block !important;
+  }
+}
+
+@media (min-width: 769px) {
+  .sidebar-toggle {
+    display: none !important;
+  }
+}
+</style>
+</head>
+<body>
+<!-- TOP BAR -->
+<div class="topbar">
+<button class="sidebar-toggle" id="sidebar-toggle" onclick="toggleSidebar()" style="display: none; background: transparent; border: none; color: var(--text); font-size: 18px; cursor: pointer; padding: 8px 12px;">☰</button>
+
+<div class="search-wrap" style="margin-left: 20px; flex: 1; max-width: 300px;">
+<input class="search-input" id="search" placeholder="Search rebuttals..." style="width: 100%; padding: 8px 12px; border-radius: 4px; border: 1px solid var(--border); background: var(--surface2); color: var(--text);" type="text"/>
+</div>
+<div class="logo">DialExpert <span>// MITI COCKPIT v6.1</span></div>
+<div class="timer-block">
+<div class="call-timer" id="callTimer">00:00</div>
+<div class="timer-btns">
+<button id="timerStart" onclick="startTimer()">START</button>
+<button onclick="resetTimer()">RESET</button>
+<button class="focus-btn" id="focusBtn" onclick="toggleFocus()">⊞ FOCUS</button>
+</div>
+</div>
+<div class="hotkey-hint">
+<kbd>←</kbd><kbd>→</kbd> acts  |  <kbd>F</kbd> focus  |  <kbd>N</kbd> notes  |  <kbd>?</kbd> shortcuts
+  </div>
+</div>
+<!-- MAIN -->
+<div class="main">
+<!-- SIDEBAR -->
+<div class="sidebar">
+<div class="sidebar-label">Call Flow</div>
+<button class="act-btn active" data-act="0" onclick="switchAct(0)" style="--act-color: var(--act1)">
+<div class="act-num">ACT 1</div>
+<div class="act-info">
+<span class="act-name">The Diagnostic</span>
+<span class="act-sub">Open · File · Soft Pull</span>
+</div>
+<div class="act-done">✓</div>
+</button>
+<button class="act-btn" data-act="1" onclick="switchAct(1)" style="--act-color: var(--act2)">
+<div class="act-num">ACT 2</div>
+<div class="act-info">
+<span class="act-name">The Mirror</span>
+<span class="act-sub">Pain · Story · Empathy</span>
+</div>
+<div class="act-done">✓</div>
+</button>
+<button class="act-btn" data-act="2" onclick="switchAct(2)" style="--act-color: var(--act3)">
+<div class="act-num">ACT 3</div>
+<div class="act-info">
+<span class="act-name">The Reveal</span>
+<span class="act-sub">Discovery · Approval · Urgency</span>
+</div>
+<div class="act-done">✓</div>
+</button>
+<button class="act-btn" data-act="3" onclick="switchAct(3)" style="--act-color: var(--act4)">
+<div class="act-num">ACT 4</div>
+<div class="act-info">
+<span class="act-name">The Build</span>
+<span class="act-sub">Email Pitch · Program Walk</span>
+</div>
+<div class="act-done">✓</div>
+</button>
+<button class="act-btn" data-act="4" onclick="switchAct(4)" style="--act-color: var(--act5)">
+<div class="act-num">ACT 5</div>
+<div class="act-info">
+<span class="act-name">The Lock-In</span>
+<span class="act-sub">Recap · Compliance · Date</span>
+</div>
+<div class="act-done">✓</div>
+</button>
+<button class="act-btn" data-act="5" onclick="switchAct(5)" style="--act-color: var(--act6)">
+<div class="act-num">ACT 6</div>
+<div class="act-info">
+<span class="act-name">The Send-Off</span>
+<span class="act-sub">Contract · Banking · Sign</span>
+</div>
+<div class="act-done">✓</div>
+</button>
+<button class="act-btn" data-act="6" onclick="switchAct(6)" style="--act-color: var(--act7)">
+<div class="act-num">ACT 7</div>
+<div class="act-info">
+<span class="act-name">Compliance Warm-Down</span>
+<span class="act-sub">QA Bot · 12 Questions</span>
+</div>
+<div class="act-done">✓</div>
+</button>
+<div class="progress-wrap">
+<div class="progress-label">
+<span>PROGRESS</span>
+<span id="progressPct">0%</span>
+</div>
+<div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+</div>
+</div>
+<!-- CONTENT -->
+<div class="content" id="contentArea">
+<!-- ===== ACT 1 ===== -->
+<div class="act-panel visible" data-panel="0" style="--act-color: var(--act1)">
+<div class="act-header">
+<div class="act-badge">ACT 1</div>
+<div class="act-title-block">
+<div class="act-title">The Diagnostic</div>
+<div class="act-subtitle">Build maximum rapport before the credit pull</div>
+</div>
+<div class="act-nav-btns">
+<button class="nav-btn mark-done" onclick="markDone(0)">✓ Mark Done</button>
+<button class="nav-btn" onclick="switchAct(1)">Next →</button>
+</div>
+</div>
+<div class="steps-container">
+<!-- Step 1 -->
+<div class="step-card expanded" onclick="toggleStep(this)">
+<div class="step-header">
+<div class="step-num">01</div>
+<div class="step-title">The Open</div>
+<span class="step-tag tag-mustdo">MUST DO</span>
+<div class="step-chevron">▶</div>
+</div>
+<div class="step-body">
+<div class="script-line">"Hi <span class="placeholder"> </span>, this is <span class="placeholder">[Cody Lane]</span> with the lending department. Were you looking for help with a loan offer?"</div>
+<div class="note">[ Validate whatever they say. Match their energy. ]</div>
+<div class="section-title">If they say NO</div>
+<div class="script-line">"So we work with both Experian and Equifax, and if you have debt over $10,000 they report to us, so I reached out to see if you wanna take care of it."</div>
+<div class="divider"></div>
+<div class="script-line">"Got it. Here's the deal — there are typically two ways we can go about this depending on your file. My job in the next few minutes is to match you with the most competitive offer available for you. Sound fair?"</div>
+<div class="note">[ First micro-yes of the call. Get it. ]</div>
+<div class="script-line">"Real quick for the record, I'm <span class="placeholder">[Cody Lane]</span>, call's recorded for quality and your protection, let me pull your file up..."</div>
+</div>
+</div>
+<!-- Step 2 -->
+<div class="step-card" onclick="toggleStep(this)">
+<div class="step-header">
+<div class="step-num">02</div>
+<div class="step-title">Loan Discovery</div>
+<span class="step-tag tag-branch">BRANCH</span>
+<div class="step-chevron">▶</div>
+</div>
+<div class="step-body">
+<div class="script-line">"How much are you looking to borrow?"</div>
+<div class="script-line">"And is it mainly to pay off your debt? — what are you actually trying to do with it?"</div>
+<div class="section-title">Rapport Branch</div>
+<div class="branch-block">
+<div class="branch-option">
+<span class="branch-label">IF "PAY OFF DEBT"</span>
+<div class="script-line">"Interest rates are absolutely crazy these days — we'll help you knock that down."</div>
+</div>
+<div class="branch-option alt">
+<span class="branch-label">IF "BUYING CAR / OTHER"</span>
+<div class="script-line">"Oh nice — what kind of car you looking at?"</div>
+<div class="note">Chat ~30 sec. Listen — their answer tells you what to emphasize in Act 4.</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Step 3 -->
+<div class="step-card" onclick="toggleStep(this)">
+<div class="step-header">
+<div class="step-num">03</div>
+<div class="step-title">File Information + Rapport</div>
+<span class="step-tag tag-branch">RAPPORT</span>
+<div class="step-chevron">▶</div>
+</div>
+<div class="step-body">
+<div class="script-line">"Quick info for the credit report — how is your first and last name spelled exactly?"</div>
+<div class="script-line">"Still residing at <span class="placeholder">(their address on dialer)</span>? Zip code <span class="placeholder">(XYZ)</span>?"</div>
+<div class="section-title">Geographic Rapport</div>
+<div class="script-line">"Oh you're all the way in <span class="placeholder">[their city]</span>? I'm here in San Diego, California — you ever been out here?"</div>
+<div class="branch-block">
+<div class="branch-option">
+<span class="branch-label">IF YES</span>
+<div class="note">Talk about it ~20 seconds.</div>
+</div>
+<div class="branch-option alt">
+<span class="branch-label">IF NO</span>
+<div class="script-line">"You'd love it — perfect weather year-round."</div>
+</div>
+</div>
+<div class="script-line">"Best email I can send your approval to?"</div>
+<div class="script-line">"And are you currently employed or have a regular source of income?"</div>
+<div class="script-line">"What kind of work do you do? — and for who? How long have you been there?"</div>
+<div class="section-title">Employment Rapport</div>
+<div class="script-line">"Oh nice — 8 years ago before I started here, I used to work in <span class="placeholder">[field]</span>."</div>
+<div class="note">OR: "You know, I always wanted to try being a [their job] — what's that like?" — Sharing something about yourself makes you a real person.</div>
+<div class="script-line">"And approximately what's your monthly income?"</div>
+<div class="script-line">"Got it — and date of birth?"</div>
+</div>
+</div>
+<!-- Step 4 -->
+<div class="step-card" onclick="toggleStep(this)">
+<div class="step-header">
+<div class="step-num">04</div>
+<div class="step-title">Soft Pull Frame + Direct Number Save</div>
+<span class="step-tag tag-mustdo">MUST DO</span>
+<div class="step-chevron">▶</div>
+</div>
+<div class="step-body">
+<div class="script-line">"Okay — I have everything I need. I'm going to do a soft pull on your credit — won't affect your score, just lets me see what you actually qualify for. Then I take it to underwriting."</div>
+<div class="script-line">"Just to confirm your identity, what's your social?"</div>
+<div class="rebuttal-block">
+<div class="rebuttal-label">⚡ If they object to SSN</div>
+<div class="script-line">"OH NO, I just meant the last 4 digits, sorry didn't have my coffee today haha."</div>
+</div>
+<div class="divider"></div>
+<div class="script-line">"Heads up — if the call drops, I'll be calling you right back. Do me a favor real quick, I'll give you my number to save under my name so it doesn't get blocked when I ring back. Are you able to save it on your phone now? — OK, it's <span class="placeholder">(830-253-0523)</span>."</div>
+<div class="note">✅ NEW: Saves your direct number = massively reduces blocked callbacks if call drops.</div>
+<div class="script-line">"Putting you on a quick 2-minute hold while I look at your credit and talk to underwriting. Stay with me — I'll be right back."</div>
+<div class="section-title">While On Hold — Action Checklist</div>
+<div class="checklist" id="holdChecklist">
+<div class="check-item" onclick="toggleCheck(this)">
+<div class="check-box">✓</div>
+<div class="check-text">Pull credit report</div>
+</div>
+<div class="check-item" onclick="toggleCheck(this)">
+<div class="check-box">✓</div>
+<div class="check-text">Use DEBT CHECK tool — add ALL qualified debts (even if already qualified)</div>
+</div>
+<div class="check-item" onclick="toggleCheck(this)">
+<div class="check-box">✓</div>
+<div class="check-text">If file NOT qualified OR debt below $10k: ADD qualified debts from unenrolled</div>
+</div>
+<div class="check-item" onclick="toggleCheck(this)">
+<div class="check-box">✓</div>
+<div class="check-text">If needed: PULL credit using IDENTITY CONNECT</div>
+</div>
+<div class="check-item" onclick="toggleCheck(this)">
+<div class="check-box">✓</div>
+<div class="check-text">Never close sub-$10k deal without attempting both first</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- ===== ACT 2 ===== -->
+<div class="act-panel" data-panel="1" style="--act-color: var(--act2)">
+<div class="act-header">
+<div class="act-badge">ACT 2</div>
+<div class="act-title-block">
+<div class="act-title">The Mirror</div>
+<div class="act-subtitle">Make them feel seen, not pitched</div>
+</div>
+<div class="act-nav-btns">
+<button class="nav-btn" onclick="switchAct(0)">← Back</button>
+<button class="nav-btn mark-done" onclick="markDone(1)">✓ Mark Done</button>
+<button class="nav-btn" onclick="switchAct(2)">Next →</button>
+</div>
+</div>
+<div class="steps-container">
+<div class="step-card expanded" onclick="toggleStep(this)">
+<div class="step-header">
+<div class="step-num">01</div>
+<div class="step-title">The Pain</div>
+<span class="step-tag tag-mustdo">MUST DO</span>
+<div class="step-chevron">▶</div>
+</div>
+<div class="step-body">
+<div class="script-line">"<span class="placeholder">[CX NAME]</span> — I'm back. I see your score is at <span class="placeholder">(xx)</span> and your utilization is at <span class="placeholder">(xx)</span>. That tells me you've been carrying a lot for a while now."</div>
+<div class="script-line">"But if you don't mind me asking of courseeeeeee, what's been the main reason leading to your current financial situation?"</div>
+<div class="note">[ Let them talk. Do NOT interrupt. Do NOT fill silence. Their story is their commitment. ]</div>
+<div class="rebuttal-block">
+<div class="rebuttal-label">⚡ If Credit Above 700</div>
+<div class="script-line">"I saw your credit at <span class="placeholder">(xx)</span> and utilization at <span class="placeholder">(xx)</span>% which is good, however I see here you are paying a lot of interest and payments towards those debts for the past couple years, so if you don't mind me asking, what's been the main reason leading to accumulating these debts with that interest rate?"</div>
+</div>
+</div>
+</div>
+<div class="step-card" onclick="toggleStep(this)">
+<div class="step-header">
+<div class="step-num">02</div>
+<div class="step-title">The Mirror Move</div>
+<span class="step-tag tag-mustdo">MUST DO</span>
+<div class="step-chevron">▶</div>
+</div>
+<div class="step-body">
+<div class="script-line">"You know what's actually really telling about what you just said?"</div>
+<div class="script-line">"What you just described — reminds me of myself exactly eight years ago, when I <span class="placeholder">[relate to hardship]</span>."</div>
+<div class="note">[ Build rapport from their story before going on hold again. If they didn't give a story, focus on debt amount and ask why it's getting higher. ]</div>
+</div>
+</div>
+<div class="step-card" onclick="toggleStep(this)">
+<div class="step-header">
+<div class="step-num">03</div>
+<div class="step-title">Build The Suspense</div>
+<span class="step-tag tag-tip">ENERGY</span>
+<div class="step-chevron">▶</div>
+</div>
+<div class="step-body">
+<div class="script-line">"But hey — stay positive. I've seen people in very similar situations turn things around — including myself — so I'm confident we can find something that works for you too. Give me one more minute while I finalize things with underwriting. And let's make a deal — if I get you approved, you're going to invite me for <span class="placeholder">(relatable joke)</span>, deal?"</div>
+<div class="script-line">"I just helped someone last week in a really similar headspace — different numbers, same energy as you. I promise I'll push for what's actually possible. Give me one more minute on hold while I make magic happen, hang with me."</div>
+<div class="note">[ The hold is only 1 minute. Don't abuse it. ]</div>
+</div>
+</div>
+<div class="step-card" onclick="toggleStep(this)">
+<div class="step-header">
+<div class="step-num">04</div>
+<div class="step-title">Use The Leverage</div>
+<span class="step-tag tag-branch">BUDGET</span>
+<div class="step-chevron">▶</div>
+</div>
+<div class="step-body">
+<div class="script-line">"Okay — I'm back. I looked at the interest projections on your file. Honestly? It's wild what these lenders expect you to pay over time. We need to fix that."</div>
+<div class="script-line">"Now — your score is <span class="placeholder">(xx)</span>, your utilization is <span class="placeholder">(xx)</span>. That's not terrible, I've seen worse, I'll be straight with you. Could make underwriting tighter — let's go through the credit report together to clear things up."</div>
+<div class="script-line">"That's why I placed you on hold again — I went back to them and told them: 'Hey, I've been with <span class="placeholder">[CX NAME]</span> for a while on the phone, and I cannot return empty-handed.' I actually told them that as a supervisor, I'll be taking full responsibility of your file. So they budged in for me."</div>
+<div class="script-line">"Before I tell you what came back — let me run a quick budget so I make sure what I'm looking at actually fits your real life. What does your income come out to monthly after taxes?"</div>
+<div class="note">[ Do budget analysis. ]</div>
+</div>
+</div>
+</div>
+</div>
+<!-- ===== ACT 3 ===== -->
+<div class="act-panel" data-panel="2" style="--act-color: var(--act3)">
+<div class="act-header">
+<div class="act-badge">ACT 3</div>
+<div class="act-title-block">
+<div class="act-title">The Reveal</div>
+<div class="act-subtitle">Make them ask for the solution</div>
+</div>
+<div class="act-nav-btns">
+<button class="nav-btn" onclick="switchAct(1)">← Back</button>
+<button class="nav-btn mark-done" onclick="markDone(2)">✓ Mark Done</button>
+<button class="nav-btn" onclick="switchAct(3)">Next →</button>
+</div>
+</div>
+<div class="steps-container">
+<div class="step-card expanded" onclick="toggleStep(this)">
+<div class="step-header">
+<div class="step-num">01</div>
+<div class="step-title">Discovery + Approval</div>
+<span class="step-tag tag-mustdo">KEY</span>
+<div class="step-chevron">▶</div>
+</div>
+<div class="step-body">
+<div class="script-line">"Alright — a couple quick things to lock in the right path:"</div>
+<div class="script-line">"What options have you actually looked at so far to deal with this?"</div>
+<div class="script-line">"Any major purchases coming up in the next 6 months?"</div>
+<div class="script-line">"If you had an extra $660 a month back — not paying interest — what would you actually DO with it?"</div>
+<div class="script-line">"By the way, <span class="placeholder">[CX NAME]</span> — have you ever really added up how much you're paying in interest alone every year? Because I have it right in front of me... and honestly, it's a lot. I do believe it would be a huge shift for you to start putting that money toward things you actually want — instead of just feeding interest every month. On top of that, just not having to deal with the stress — collection calls, late payments, 7 different bills, all of that — makes a big difference, right?"</div>
+<div class="script-line">"Now the reason I'm walking you through all of this — is because we were actually able to get you <strong>APPROVED!</strong>"</div>
+<div class="note">[ PAUSE 3 SECONDS. Let it kick in. ]</div>
+</div>
+</div>
+<div class="step-card" onclick="toggleStep(this)">
+<div class="step-header">
+<div class="step-num">02</div>
+<div class="step-title">Linda Extension Beat</div>
+<span class="step-tag tag-tip">DISCORD</span>
+<div class="step-chevron">▶</div>
+</div>
+<div class="step-body">
+<div class="script-line">"But hold on one moment before I send you the approval — I just sent to Linda, my partner here on Discord, to see if we can get you an exception to extend your payoff time as well, because I see you've been on time with your payments previously. Hold on a sec..."</div>
+<div class="note">[ Pause ~30 seconds while you actually message Linda and wait for the response. ]</div>
+<div class="script-line">"OK — we got that too. Got you the exception on the payoff timeline, so your monthly is going to be even better than it would have been. Sending you the email right now — could you pull it up for me?"</div>
+</div>
+</div>
+<div class="step-card" onclick="toggleStep(this)">
+<div class="step-header">
+<div class="step-num">03</div>
+<div class="step-title">Creating Urgency</div>
+<span class="step-tag tag-mustdo">CLOSE</span>
+<div class="step-chevron">▶</div>
+</div>
+<div class="step-body">
+<div class="script-line">"While you're pulling that up — funny thing, I just thanked underwriting on our system for getting you approved, and they hit me back: 'Honestly, <span class="placeholder">[Cody Lane]</span>, don't get a big head — qualifications were a bit more flexible today, it's the last day of the open-enrollment window for the month.' Ouch — I don't feel as special anymore, haha. But hey — an approval is an approval, right? And real talk — in 6 months from now, you could be putting your feet up on Miami Beach with that extra money in your pocket instead of feeding it to credit card interest. That's the play."</div>
+</div>
+</div>
+</div>
+</div>
+<!-- ===== ACT 4 ===== -->
+<div class="act-panel" data-panel="3" style="--act-color: var(--act4)">
+<div class="act-header">
+<div class="act-badge">ACT 4</div>
+<div class="act-title-block">
+<div class="act-title">The Build</div>
+<div class="act-subtitle">Email pitch — they construct their own value proposition</div>
+</div>
+<div class="act-nav-btns">
+<button class="nav-btn" onclick="switchAct(2)">← Back</button>
+<button class="nav-btn mark-done" onclick="markDone(3)">✓ Mark Done</button>
+<button class="nav-btn" onclick="switchAct(4)">Next →</button>
+</div>
+</div>
+<div class="steps-container">
+<div class="step-card" onclick="toggleStep(this)">
+<div class="step-header">
+<div class="step-num">PREP</div>
+<div class="step-title">PREP NOTE - IMPORTANT FOR COMPARISON</div>
+<span class="step-tag tag-mustdo">PREP</span>
+<div class="step-chevron">▶</div>
+</div>
+<div class="step-body">
+<div class="note">Check how much the customer is paying on their debts currently from "Current Pmts" in CRM — this will be used throughout the pitch.</div>
+</div>
+</div>
+<div class="step-card" onclick="toggleStep(this)">
+<div class="step-header">
+<div class="step-num">01</div>
+<div class="step-title">1 - Walking Through The Email</div>
+<span class="step-tag tag-mustdo">PITCH</span>
+<div class="step-chevron">▶</div>
+</div>
+<div class="step-body">
+<div class="script-line">Can you check your email for me real quick?</div><div class="script-line">Let me walk you through it — it's very simple and straightforward, split into 2 parts. Bear with me.</div><div class="note">[ Customer must NOT interrupt during explanation — make sure they're following along. ]</div><div class="script-line">So based on what I'm seeing, you've got about  <span class="placeholder">(DEBT AMOUNT)</span>  spread across these  <span class="placeholder">(X)</span>  accounts. Obviously this is just an example — we can remove any account here if needed.</div><div class="script-line">Now scroll down — see your credit score at  <span class="placeholder">(XYZ)</span> ? Not bad, but can be better of course.</div><div class="script-line">Ok, now scroll a bit more — see the red and green lettering?</div><div class="script-line">*RED SIDE — CURRENT LENDERS**</div><div class="note">"On the left side you'll see your required minimum payments. Your lenders currently want you to make the minimum of (XYZ). You see two problems here (cx name): (1) the first problem is you are currently paying (MORE/LESS) than this — you're paying (current pmts). (2) The second problem is that if you do pay this minimum it's going to take you 15 years to finish it off with total interest hitting (XYZ). Honestly, that's a sign of predatory lending where they lock people into just paying the interest and not going towards the principal balance — and I'm sure you know how this works."</div><div class="script-line">*GREEN SIDE — MODIFIED PROGRAM**</div><div class="note">"What we're doing is shifting you over to the green bright side — this is what's called the Modified Program. Here's how it works: Our partner, (Aspire/Resync), already has pre-established agreements with your lenders across these (X) accounts. So they reach out to your creditors and say: 'hey, we're going to pay this in full and handle this' — so now your creditors remove the interest for us, because they would no longer be lending you money, right? So your monthly payments will drop down to (XYZ) on way less payoff time of (XYZ). So you would end up paying less for a less payoff time — instead of taking 15 years. Now, again, the reason it's less (cx name) is because your lenders would rather get paid in 90 days instead of waiting 15 years, right? (let them say right)"</div><div class="script-line">Now once everything is set up and the paperwork is completed — which typically takes around 90–100 days — we move forward into Part 2.</div>
+</div>
+</div>
+<div class="step-card" onclick="toggleStep(this)">
+<div class="step-header">
+<div class="step-num">02</div>
+<div class="step-title">2 - Resolving Balances Through Better Lending</div>
+<span class="step-tag tag-mustdo">KEY</span>
+<div class="step-chevron">▶</div>
+</div>
+<div class="step-body">
+<div class="script-line">Better Lending will send out the Fresh Start loan directly to your creditors. That's how your balances are ultimately paid off and marked as paid on your credit report — typically within that 90 to 100-day window.</div><div class="script-line">When it comes to how we make money — all fees associated with the program and the payment process through Better Lending are already INCLUDED in the total cost. You won't incur any additional charges beyond what you see here.</div><div class="script-line">So to sum it up — you would end up paying less, for a less payoff time. Payments could be lower if you decided to remove any of these accounts.</div>
+</div>
+</div>
+<div class="step-card" onclick="toggleStep(this)">
+<div class="step-header">
+<div class="step-num">03</div>
+<div class="step-title">3 - The Graduation Loan Plant</div>
+<span class="step-tag tag-tip">AUTO-PILOT</span>
+<div class="step-chevron">▶</div>
+</div>
+<div class="step-body">
+<div class="script-line">The other good news is after three consecutive payments, when they see you're serious about this, you will also qualify for a graduation loan — which is a loan of  <span class="placeholder">($25–40k)</span>  with an APR of 6%. But I will get to that in a moment.</div>
+</div>
+</div>
+<div class="step-card" onclick="toggleStep(this)">
+<div class="step-header">
+<div class="step-num">04</div>
+<div class="step-title">4 - Why Lenders Love This</div>
+<span class="step-tag tag-tip">TIP</span>
+<div class="step-chevron">▶</div>
+</div>
+<div class="step-body">
+<div class="script-line">Now lenders LOVE that arrangement — because they get paid by us in full, in a lump-sum, after 90 days from your first payment date. So it's guaranteed cash for them, all pre-established. That's why we get the discount on the balance — they'd rather get paid in 90 days for less than risk years of minimum payments, right?</div>
+</div>
+</div>
+<div class="step-card" onclick="toggleStep(this)">
+<div class="step-header">
+<div class="step-num">05</div>
+<div class="step-title">5 - Single Payment Reassurance</div>
+<span class="step-tag tag-mustdo">LOCK</span>
+<div class="step-chevron">▶</div>
+</div>
+<div class="step-body">
+<div class="script-line">And you do all of this with ONE simple monthly payment. The one you saw in the email. That's it. No juggling 7 different bills, no 7 different due dates, no late fees. One payment, we handle the rest. Make sense so far?</div><div class="note">[ Get the yes. Micro-yes #5. ]</div>
+</div>
+</div>
+<div class="step-card" onclick="toggleStep(this)">
+<div class="step-header">
+<div class="step-num">06</div>
+<div class="step-title">6 - The Honest Disclosure (Locks Commitment)</div>
+<span class="step-tag tag-mustdo">LOCK</span>
+<div class="step-chevron">▶</div>
+</div>
+<div class="step-body">
+<div class="script-line">And one more thing — because I want to be 100% straight with you, not sell you on something with hidden gotchas — remember when I told you that after 90 days and three payments, once your creditors are paid, you'd qualify for a graduation loan?</div><div class="script-line">Now, if life happens and you miss a payment during the 90 days, that's okay — we reschedule it for you, with no late fees, no problem. We are not here to penalize you for being human.</div><div class="script-line">BUT to be completely upfront — every missed payment pushes your graduation loan back by 30 days. That's just how the timing works on our end.</div><div class="script-line">So if you stay consistent on those 3 payments, you're on track. If something comes up, we move it — but I'm sure you understand it would cost you a month on the loan side. I'm telling you NOW because I'd rather you know than be surprised. Right?</div><div class="script-line">*OPTIONAL ADD**</div><div class="note">Optional add: "And in case you're wondering why 3 months for getting cash — well, I'm sure you understand they want to see good faith and consistency from you, right? I know you're a good responsible person, but not everyone is, and without a 700ish credit score, they don't want to be handing cash to anyone, they'd go bankrupt, right? haha."</div>
+</div>
+</div>
+<div class="step-card" onclick="toggleStep(this)">
+<div class="step-header">
+<div class="step-num">07</div>
+<div class="step-title">7 - Card Use Rule (Smoothest Delivery)</div>
+<span class="step-tag tag-mustdo">LOCK</span>
+<div class="step-chevron">▶</div>
+</div>
+<div class="step-body">
+<div class="script-line">Now after the 90-day timeframe, we would be paying the amounts which are currently enrolled here on the email — you'll get that in writing exactly the numbers in the email. So OBVIOUSLY we would need you to stop using and paying your cards, because if you use them the balances will change from what we're going to put in the contract today, and it could put some latency on the whole process. We would then need to re-update the balances and so on. However, after everything is paid off, sure you can use them again — but we don't want you to get back in debt, right? haha.</div><div class="note">Assume the close —</div><div class="script-line">That said, are these all the accounts you are looking to take care of? Or are there any cards here that you want to keep using through the next 90 days?</div>
+</div>
+</div>
+<div class="step-card" onclick="toggleStep(this)">
+<div class="step-header">
+<div class="step-num">08</div>
+<div class="step-title">8 - Fees (Confidence Move)</div>
+<span class="step-tag tag-mustdo">LOCK</span>
+<div class="step-chevron">▶</div>
+</div>
+<div class="step-body">
+<div class="script-line">Quick on cost, as I mentioned earlier — there is a service fee. 6% annually based on your total enrolled debt. In other words, 25% of the balance across your full program length of  <span class="placeholder">(X)</span>  years.</div><div class="script-line">However, not to confuse you, it's already built and included into the monthly you're looking at, and you'll see the same in official writing today.</div><div class="script-line">So no add-ons, no surprise charges. The number on the green side is the WHOLE number to cover all these debts —  <span class="placeholder">($X)</span>  a month for all these accounts. So we worry about all these X accounts, you just take care of that 1 payment, and well, your  <span class="placeholder">(mortgage/car loan)</span> .</div><div class="note">[ Mention either or, or both, depending on what they have on the report. ]</div>
+</div>
+</div>
+<div class="step-card" onclick="toggleStep(this)">
+<div class="step-header">
+<div class="step-num">09</div>
+<div class="step-title">9 - The Credit Hit Disclosure</div>
+<span class="step-tag tag-mustdo">LOCK</span>
+<div class="step-chevron">▶</div>
+</div>
+<div class="step-body">
+<div class="script-line">Now, of course as you understand, initially it will take a slight hit on your credit, just like any traditional loan — but the whole point is that it climbs back UP organically once everything is done and your accounts get marked paid. Again, after 90 days from your first payment.</div><div class="script-line">*MENTION NOW — THE TIMING WIN**</div><div class="note">"By the way — timing actually worked in your favor on this one. If Linda was outside of office, the program length would've been way shorter. So yeah, good timing for sure."</div>
+</div>
+</div></div>
+</div>
+<!-- ===== ACT 5 ===== -->
+<div class="act-panel" data-panel="4" style="--act-color: var(--act5)">
+<div class="act-header">
+<div class="act-badge">ACT 5</div>
+<div class="act-title-block">
+<div class="act-title">The Lock-In</div>
+<div class="act-subtitle">Multiple verbal yeses on understanding</div>
+</div>
+<div class="act-nav-btns">
+<button class="nav-btn" onclick="switchAct(3)">← Back</button>
+<button class="nav-btn mark-done" onclick="markDone(4)">✓ Mark Done</button>
+<button class="nav-btn" onclick="switchAct(5)">Next →</button>
+</div>
+</div>
+<div class="steps-container">
+<div class="step-card" onclick="toggleStep(this)">
+<div class="step-header">
+<div class="step-num">NON-NEG</div>
+<div class="step-title">Non-Negotiable Checkpoints</div>
+<span class="step-tag tag-mustdo">MUST DELIVER</span>
+<div class="step-chevron">▶</div>
+</div>
+<div class="step-body">
+<div class="note">Customer MUST understand ALL of these before leaving the call.</div>
+<div class="checkpoint-grid" id="checkpointGrid">
+<div class="checkpoint-item" onclick="toggleCheckpoint(this)">
+<div class="cp-num">1</div>
+<div class="cp-text">Nothing happens before 90 days from the first payment date.</div>
+</div>
+<div class="checkpoint-item" onclick="toggleCheckpoint(this)">
+<div class="cp-num">2</div>
+<div class="cp-text">This is a 2-step program (Aspire/Resync debt reduction, then payoff + graduation loan by Better Lending).</div>
+</div>
+<div class="checkpoint-item" onclick="toggleCheckpoint(this)">
+<div class="cp-num">3</div>
+<div class="cp-text">Payoff and graduation loan come from US (Better Lending) — NOT directly through Aspire.</div>
+</div>
+<div class="checkpoint-item" onclick="toggleCheckpoint(this)">
+<div class="cp-num">4</div>
+<div class="cp-text">Any concern or question — they call OUR support line first, not Aspire.</div>
+</div>
+<div class="checkpoint-item" onclick="toggleCheckpoint(this)">
+<div class="cp-num">5</div>
+<div class="cp-text">If they call Aspire they may get confused — Aspire only sees their piece, not the full picture.</div>
+</div>
+<div class="checkpoint-item" onclick="toggleCheckpoint(this)">
+<div class="cp-num">6</div>
+<div class="cp-text">They have our support number written down and saved.</div>
+</div>
+<div class="checkpoint-item" onclick="toggleCheckpoint(this)">
+<div class="cp-num">7</div>
+<div class="cp-text">NOT receiving cash or deposit today — today is enrollment, not funding.</div>
+</div>
+<div class="checkpoint-item" onclick="toggleCheckpoint(this)">
+<div class="cp-num">8</div>
+<div class="cp-text">Graduation loan only after 3 payments + 90 days.</div>
+</div>
+<div class="checkpoint-item" onclick="toggleCheckpoint(this)">
+<div class="cp-num">9</div>
+<div class="cp-text">Will NOT use enrolled cards for next 90 days while balances are being finalized.</div>
+</div>
+</div>
+</div>
+</div>
+<div class="step-card expanded" onclick="toggleStep(this)">
+<div class="step-header">
+<div class="step-num">01</div>
+<div class="step-title">The Behind-The-Scenes (2-Step Reinforcement)</div>
+<span class="step-tag tag-mustdo">MUST DO</span>
+<div class="step-chevron">▶</div>
+</div>
+<div class="step-body">
+<div class="script-line">"Ok so I'm confirming now all these <span class="placeholder">(X)</span> accounts — ONE thing you NEED to remember is that this is a 2-step program like I told you."</div>
+<div class="script-line">"For Step 1 — the agreements with your lenders to remove interest and get the debt reduced — we use our partner called Aspire/Resync. Their ONLY job is to bring the balances down. That's it."</div>
+<div class="script-line">"For Step 2 — the actual payoff and the graduation loan — that's us directly. Better Lending. Different department — we handle the cash. We're the ones sending the lump-sum to your creditors after Aspire/Resync is done with the legal part."</div>
+<div class="script-line">"Just let me know if you understand this part clearly, because some of our customers confuse this and call Aspire/Resync directly asking for the loan or the payoff, then they get confused, because they're just mostly legal people haha."</div>
+<div class="script-line">"And hey, starting today — you stop paying your creditors. That part's over. You only handle the 1 monthly payment and well, your <span class="placeholder">(mortgage/car payment/excluded account)</span>."</div>
+</div>
+</div>
+<div class="step-card" onclick="toggleStep(this)">
+<div class="step-header">
+<div class="step-num">02</div>
+<div class="step-title">Lock-In Recap</div>
+<span class="step-tag tag-mustdo">MUST DO</span>
+<div class="step-chevron">▶</div>
+</div>
+<div class="step-body">
+<div class="note">TONE: Shift gears. Calmer, more "official." Read like bullet points — not a story. Faster pace. No jokes.</div>
+<div class="script-line">"Alright <span class="placeholder">[Customer Name]</span> — quick recap before we move forward, I want you walking away crystal clear:"</div>
+<div class="script-line">"Step 1 = Aspire/Resync = legal side only. They finalize paperwork, they don't pay, they don't loan."</div>
+<div class="script-line">"Step 2 = us, Better Lending = the money side. We send the payoff. We handle your graduation loan."</div>
+<div class="script-line">"Payoff to your creditors lands around 90 to 100 days after your first payment. Starting today, you stop paying creditors — we take it from here."</div>
+<div class="script-line">"And for ANY questions, updates, or concerns — you call US, not Aspire. We see the full file, they only see their piece. I'll give you our support line in a minute. Sound good?"</div>
+</div>
+</div>
+<div class="step-card" onclick="toggleStep(this)">
+<div class="step-header">
+<div class="step-num">03</div>
+<div class="step-title">Compliance Check (Mid-Call Sales Tool)</div>
+<span class="step-tag tag-mustdo">REQUIRED</span>
+<div class="step-chevron">▶</div>
+</div>
+<div class="step-body">
+<div class="script-line">"OK perfect — now the system won't let me proceed further on the file UNTIL we run a quick Better Lending compliance verification. Takes 30 seconds. It's just to confirm on record that I delivered all the information correctly. For your protection. I'll add the bot now — sound good?"</div>
+<div class="note">[ Get the YES. Add the bot to the call. Stay completely silent during. ]</div>
+<div class="rebuttal-block">
+<div class="rebuttal-label">📞 Transfer Steps — BL Compliance Bot</div>
+<div class="checklist">
+<div class="check-item" onclick="toggleCheck(this)">
+<div class="check-box">✓</div>
+<div class="check-text">Dial (405) 786-5254 with CX on the line</div>
+</div>
+<div class="check-item" onclick="toggleCheck(this)">
+<div class="check-box">✓</div>
+<div class="check-text">Let the bot play — stay completely silent</div>
+</div>
+<div class="check-item" onclick="toggleCheck(this)">
+<div class="check-box">✓</div>
+<div class="check-text">Once done — "hang up transfer" — do NOT misclick</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="step-card" onclick="toggleStep(this)">
+<div class="step-header">
+<div class="step-num">04–10</div>
+<div class="step-title">Trust Build · Payment Date · Pre-Contract</div>
+<span class="step-tag tag-mustdo">CLOSE</span>
+<div class="step-chevron">▶</div>
+</div>
+<div class="step-body">
+<div class="script-line">"Alright, perfect — compliance cleared. File is good to move forward, and after we wrap up here, I'll transfer you over to the Better Lending onboarding team as well. They'll also confirm your understanding of all this, and they're going to ask you to rate me — hoping for a 20-star rating, haha."</div>
+<div class="script-line">"Quick reassurance on the money — your monthly payment goes into an FDIC-insured trust account. Federally protected. Backed at the banking level, not held by us. Nothing gets touched without your approval. And no pre-payment penalties — if you win the lottery and want to pay it off faster, you can."</div>
+<div class="section-title">First Payment Date</div>
+<div class="script-line">"Now for the first payment, the system needs me to set it within 5–10 days from today to get the program kicked off. What day works best for you in that window?"</div>
+<div class="note">[ Set 1 day after their chosen date. Confirm it works. ]</div>
+<div class="rebuttal-block">
+<div class="rebuttal-label">⚡ If Customer Pushes Past 10 Days</div>
+<div class="script-line">"Hmm okay — quick question so I set this up right for you: is that date just a preference because of how your month is laid out, OR is it more about making sure the funds are comfortably there?"</div>
+<div class="note">If "preference": Push back to 10-day window. If "funds": Anchor 1 day after next paycheck.</div>
+</div>
+<div class="script-line">"And quick — I'm asking this for YOUR benefit, not mine — is that day going to work cleanly, or is there a smarter day for me to set this on?"</div>
+<div class="script-line">"Perfect. For the recurring date going forward, I will set it 1 day after your paycheck. When does your paycheck come in?"</div>
+<div class="section-title">Pre-Contract Debt Collector Insider</div>
+<div class="script-line">"Quick recap before I send the contract: You stop paying creditors today. Cancel any auto-payments to them. If they call, email, or send anything — do not engage. Just tell them to contact us."</div>
+<div class="script-line">"Fun fact — I actually used to work in debt collection. These guys just have auto-dialers ringing everyone, they probably don't even know your name till you pick up. So don't take it personal, haha. Just ignore them and cool it off."</div>
+</div>
+</div>
+</div>
+</div>
+<!-- ===== ACT 6 ===== -->
+<div class="act-panel" data-panel="5" style="--act-color: var(--act6)">
+<div class="act-header">
+<div class="act-badge">ACT 6</div>
+<div class="act-title-block">
+<div class="act-title">The Send-Off</div>
+<div class="act-subtitle">Contract · Banking · Compliance · Handoff</div>
+</div>
+<div class="act-nav-btns">
+<button class="nav-btn" onclick="switchAct(4)">← Back</button>
+<button class="nav-btn mark-done" onclick="markDone(5)">✓ Mark Done</button>
+<button class="nav-btn" onclick="switchAct(6)">Next →</button>
+</div>
+</div>
+<div class="steps-container">
+<div class="step-card expanded" onclick="toggleStep(this)">
+<div class="step-header">
+<div class="step-num">01</div>
+<div class="step-title">Generate Contract + Banking Collection</div>
+<span class="step-tag tag-mustdo">MUST DO</span>
+<div class="step-chevron">▶</div>
+</div>
+<div class="step-body">
+<div class="script-line">"Generating your contract package now. Have you done an e-signature before?"</div>
+<div class="script-line">"Easy then — I'll guide you...."</div>
+<div class="section-title">Banking (While Packet Generates)</div>
+<div class="script-line">"So what payment method do you wanna put on there, will that be checking or savings?"</div>
+<div class="script-line">"Okay, and the routing number?"</div>
+<div class="script-line">"Bank of <span class="placeholder">[XYZ]</span>, correct? Ok and the account number?"</div>
+<div class="script-line">"Let me read those back to you to make sure I have them right..."</div>
+<div class="note">[ REPEAT routing + account numbers back. Confirm date of birth. "And this account is under your name, correct?" ]</div>
+<div class="rebuttal-block">
+<div class="rebuttal-label">⚡ If Customer Refuses Banking On Call</div>
+<div class="script-line">"No problem at all — I'll send you a secure submission form to your email instead. You can fill it in there directly. Same outcome, just a different way to handle it."</div>
+</div>
+<div class="rebuttal-block">
+<div class="rebuttal-label">🔴 AGENT REMINDER — FILE CHECKER</div>
+<div class="checklist">
+<div class="check-item" onclick="toggleCheck(this)">
+<div class="check-box">✓</div>
+<div class="check-text">Run FILE CHECKER before sending contract</div>
+</div>
+<div class="check-item" onclick="toggleCheck(this)">
+<div class="check-box">✓</div>
+<div class="check-text">Verify: name, address, debt amounts</div>
+</div>
+<div class="check-item" onclick="toggleCheck(this)">
+<div class="check-box">✓</div>
+<div class="check-text">Verify: banking, payment date, account list</div>
+</div>
+<div class="check-item" onclick="toggleCheck(this)">
+<div class="check-box">✓</div>
+<div class="check-text">Catch errors HERE, not after signing</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="step-card" onclick="toggleStep(this)">
+<div class="step-header">
+<div class="step-num">02</div>
+<div class="step-title">Contract Signing Steps</div>
+<span class="step-tag tag-mustdo">WALK THROUGH</span>
+<div class="step-chevron">▶</div>
+</div>
+<div class="step-body">
+<div class="script-line">"Alright, the packet is ready."</div>
+<div class="checklist">
+<div class="check-item" onclick="toggleCheck(this)">
+<div class="check-box">✓</div>
+<div class="check-text">1. "You should see the email from ClixSign — can you see it?"</div>
+</div>
+<div class="check-item" onclick="toggleCheck(this)">
+<div class="check-box">✓</div>
+<div class="check-text">2. "Ok perfect, you're going to click REVIEW." [Pause 3 sec]</div>
+</div>
+<div class="check-item" onclick="toggleCheck(this)">
+<div class="check-box">✓</div>
+<div class="check-text">3. "Then check the boxes and click BEGIN SIGNING." [Pause 2 sec]</div>
+</div>
+<div class="check-item" onclick="toggleCheck(this)">
+<div class="check-box">✓</div>
+<div class="check-text">4. "Then pick your initials at the best format. I usually pick the first one, it's the prettiest haha." [Pause 3–5 sec]</div>
+</div>
+<div class="check-item" onclick="toggleCheck(this)">
+<div class="check-box">✓</div>
+<div class="check-text">5. "Then you're going to click ADOPT and CONFIRM signature." [Pause 3 sec]</div>
+</div>
+<div class="check-item" onclick="toggleCheck(this)">
+<div class="check-box">✓</div>
+<div class="check-text">6. "Then you're going to tap on all the orange boxes." [Pause 3–6 sec]</div>
+</div>
+<div class="check-item" onclick="toggleCheck(this)">
+<div class="check-box">✓</div>
+<div class="check-text">7. "Once the required fields counter hits 0 you'll see FINISH DOCUMENT — pressing that will process it and you'll get a signed copy."</div>
+</div>
+</div>
+<div class="section-title">Contract Context Line (Before Signing)</div>
+<div class="script-line">"Contract itself is pretty simple, first 11 pages is just state laws and regulations. If you scroll down a bit you'll see the deposit schedule where you'll pay <span class="placeholder">(X)</span> per month — NO PENNY MORE — and your payment date we agreed on the <span class="placeholder">(X)</span>."</div>
+<div class="section-title">If They Object / Ask Questions In Contract</div>
+<div class="rebuttal-block">
+<div class="rebuttal-label">⚡ Contract Rebuttal (Use ONLY if needed)</div>
+<div class="script-line">"Most of the contract is standard legal language and exhibits for every kind of debt relief on earth. Let me guide you through OUR exhibits — they're 4 exhibits, and they show the debt we enrolled, your program details and the monthly you saw, including our fees, your banking information, your deposit schedule showing EACH and EVERY payment till last day, nothing extra. Let me know when you see Exhibit A..."</div>
+<div class="branch-block">
+<div class="branch-option">
+<span class="branch-label">RESYNC CONTRACT</span>
+<div class="note">Exhibit A (Enrolled Debt) → Page 11
+Exhibit C (Personal Info &amp; Program) → Page 17
+Banking Information → Page 27
+Deposit Schedule → Page 28
+Notice of Cancellation → Page 23</div>
+</div>
+<div class="branch-option alt">
+<span class="branch-label">ASPIRE CONTRACT</span>
+<div class="note">Schedule D (Enrolled Debt) → Page 15
+Personal Information → Page 21
+Banking Information → Page 22
+Deposit Schedule → Page 23</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="step-card" onclick="toggleStep(this)">
+<div class="step-header">
+<div class="step-num">03</div>
+<div class="step-title">After Signing — Support + Graduation + Handoff</div>
+<span class="step-tag tag-mustdo">DEAL CLOSED</span>
+<div class="step-chevron">▶</div>
+</div>
+<div class="step-body">
+<div class="script-line">"Ok I got the package here confirmed, congratz <span class="placeholder">(CX NAME)</span>, you took the step that is going to get you out of this debt and interest loop. Most people stay stuck for years."</div>
+<div class="script-line">"You're going to feel different in the next few days because you're not making those old payments anymore. That's normal — that's the program working."</div>
+<div class="section-title">Support Number — MUST DO</div>
+<div class="script-line">"Quick — do you have a pen? I'm giving you your assigned support number: <strong style="color:var(--accent3)">(949) 804-7133</strong>. Ask for Leo, Carla, or Nora — they'll have your file ready. Just tell them you're my client."</div>
+<div class="script-line">"Important — if at any point you have a concern, a question, or even start thinking about stopping, you call US first before doing anything. Most things are something we fix in 2 minutes."</div>
+<div class="section-title">Graduation Loan Reinforcement — MUST DO</div>
+<div class="script-line">"And remember the second approval we got — the graduation loan? Once you complete your 3 payments and your creditors are paid off, you qualify."</div>
+<div class="script-line">"Here's the dedicated number for that — do you want to save it as well? <strong style="color:var(--accent3)">(949) 344-2994</strong>. Save it. Once you hit your 90-day mark, you call that number and we set you up."</div>
+<div class="script-line">"Most companies just get you out of debt. We get you out of debt AND give you working capital."</div>
+<div class="section-title">Upsells (Soft)</div>
+<div class="script-line">"Quick last things — does anyone in your household have similar debts? Sometimes worth knocking it all out at once."</div>
+<div class="script-line">"And our partner company also handles IRS taxes. Any unpaid taxes you might want help with?"</div>
+<div class="section-title">Onboarding Transfer</div>
+<div class="script-line">"Last step — I'm transferring you to a quick automated compliance call. Takes 2–3 minutes. After that, we'll speak again briefly, then I either transfer you to Better Lending's onboarding team or let you know they'll call you within 10 minutes if they're busy."</div>
+<div class="note">Onboarding Number: <strong>(949) 315-7441)</strong> | Handoff: "Hey, I have [CX Name] with me — file number MITI-[XXX], all good to go."</div>
+</div>
+</div>
+</div>
+</div>
+<!-- ===== ACT 7 ===== -->
+<div class="act-panel" data-panel="6" style="--act-color: var(--act7)">
+<div class="act-header">
+<div class="act-badge">ACT 7</div>
+<div class="act-title-block">
+<div class="act-title">Compliance Warm-Down</div>
+<div class="act-subtitle">Must do fully — QA Bot 12 Questions</div>
+</div>
+<div class="act-nav-btns">
+<button class="nav-btn" onclick="switchAct(5)">← Back</button>
+<button class="nav-btn mark-done" onclick="markDone(6)">✓ Mark Done</button>
+</div>
+</div>
+<div class="steps-container">
+<div class="step-card expanded" onclick="toggleStep(this)">
+<div class="step-header">
+<div class="step-num">INTRO</div>
+<div class="step-title">QA Bot Setup</div>
+<span class="step-tag tag-mustdo">MUST DO</span>
+<div class="step-chevron">▶</div>
+</div>
+<div class="step-body">
+<div class="script-line">"Alright, so here's what happens next — I'm going to transfer you to a quick automated compliance call. Like the first one we did, but this one is for the Aspire/Resync side, the ones responsible for the legal part, remember..."</div>
+<div class="script-line">"Now heads-up — about 70% of what you'll hear doesn't really apply to you. Because this is a modified program with Better Lending, right... But it's just standard disclosures that cover every type of debt relief in the industry."</div>
+<div class="script-line">"It'll ask a few things like confirming your personal info, and asking you yes or no questions. All answers are YES except for 2 questions:"</div>
+<div class="branch-block">
+<div class="branch-option alt">
+<span class="branch-label">🔴 ANSWER NO</span>
+<div class="note">• Military clearances for your job<br/>• Legal action from your creditors</div>
+</div>
+<div class="branch-option">
+<span class="branch-label">🟢 EVERYTHING ELSE</span>
+<div class="note">YES to confirm what we already discussed.</div>
+</div>
+</div>
+</div>
+</div>
+<div class="step-card" onclick="toggleStep(this)">
+<div class="step-header">
+<div class="step-num">Q&amp;A</div>
+<div class="step-title">All 12 QA Bot Questions</div>
+<span class="step-tag tag-mustdo">REFERENCE</span>
+<div class="step-chevron">▶</div>
+</div>
+<div class="step-body">
+<div class="note">Click each question as it's answered.</div>
+<div class="qa-item" onclick="toggleQA(this)">
+<div>
+<div class="qa-q">Q1 — Military/Security Clearance</div>
+<div class="qa-answer">"Does your employer require you to maintain any type of security or military clearance?" → Not active military.</div>
+</div>
+<div class="qa-badge qa-no">NO</div>
+</div>
+<div class="qa-item" onclick="toggleQA(this)">
+<div>
+<div class="qa-q">Q2 — Not a consolidation company</div>
+<div class="qa-answer">"Do you understand this is not a debt consolidation company, and we will NOT make scheduled regular payments?" → Accounts paid in lump-sum after 90–100 days.</div>
+</div>
+<div class="qa-badge qa-yes">YES</div>
+</div>
+<div class="qa-item" onclick="toggleQA(this)">
+<div>
+<div class="qa-q">Q3 — Debt settlement, not a loan</div>
+<div class="qa-answer">"Do you understand this is a debt settlement company and not a loan?" → Not depositing cash today. Enrolled into a resolution plan.</div>
+</div>
+<div class="qa-badge qa-yes">YES</div>
+</div>
+<div class="qa-item" onclick="toggleQA(this)">
+<div>
+<div class="qa-q">Q4 — Resync earns fee after settlement</div>
+<div class="qa-answer">"Do you understand that Resync will only earn any fee once a settlement has been successfully agreed to?" → We don't access funds until debts are taken care of.</div>
+</div>
+<div class="qa-badge qa-yes">YES</div>
+</div>
+<div class="qa-item" onclick="toggleQA(this)">
+<div>
+<div class="qa-q">Q5 — Creditors may apply late fees/interest</div>
+<div class="qa-answer">"Do you understand that creditors may continue to apply late fees, penalties, and interest on enrolled debts?" → Avoiding that by restructuring. Not using them for 90–100 days, then paid off.</div>
+</div>
+<div class="qa-badge qa-yes">YES</div>
+</div>
+<div class="qa-item" onclick="toggleQA(this)">
+<div>
+<div class="qa-q">Q6 — 25% performance fee</div>
+<div class="qa-answer">"We will not charge fee until settlement is reached — 25% of balance at enrollment, ~6–8% annually, included in monthly draft."</div>
+</div>
+<div class="qa-badge qa-yes">YES</div>
+</div>
+<div class="qa-item" onclick="toggleQA(this)">
+<div>
+<div class="qa-q">Q7 — FDIC trust account</div>
+<div class="qa-answer">"Funds placed in FDIC-insured trust account until settlement reached."</div>
+</div>
+<div class="qa-badge qa-yes">YES</div>
+</div>
+<div class="qa-item" onclick="toggleQA(this)">
+<div>
+<div class="qa-q">Q8 — Settlement timeline 4–6 months</div>
+<div class="qa-answer">"Settlement takes 4–6 months" → 4–6 months is the maximum legal timeframe. For your case: 90–100 days as discussed.</div>
+</div>
+<div class="qa-badge qa-yes">YES</div>
+</div>
+<div class="qa-item" onclick="toggleQA(this)">
+<div>
+<div class="qa-q">Q9 — No legal action from creditors</div>
+<div class="qa-answer">"Confirm if you have received any legal action from your creditors on enrolled accounts?" → Enrolled accounts without any prior legal action.</div>
+</div>
+<div class="qa-badge qa-no">NO</div>
+</div>
+<div class="qa-item" onclick="toggleQA(this)">
+<div>
+<div class="qa-q">Q10 — Creditor means of collection</div>
+<div class="qa-answer">"Are you aware that a creditor has various means to collect debts including legal action?" → Usually send emails and letters. Redirect them to contact Resync.</div>
+</div>
+<div class="qa-badge qa-yes">YES</div>
+</div>
+<div class="qa-item" onclick="toggleQA(this)">
+<div>
+<div class="qa-q">Q11 — Credit score impact</div>
+<div class="qa-answer">"Do you understand that your credit score may be adversely impacted?" → Will take a slight hit until accounts are paid.</div>
+</div>
+<div class="qa-badge qa-yes">YES</div>
+</div>
+<div class="qa-item" onclick="toggleQA(this)">
+<div>
+<div class="qa-q">Q12 — Forgiven debt may be taxable / 1099-C</div>
+<div class="qa-answer">"Do you acknowledge that forgiven debt may be taxable, and creditors may send a 1099-C?" → If received, Resync gives 982-IRS form to write it off — it's a hardship program.</div>
+</div>
+<div class="qa-badge qa-yes">YES</div>
+</div>
+<div class="rebuttal-block" style="margin-top:14px">
+<div class="rebuttal-label">🔴 CRITICAL — After Tax Question</div>
+<div class="note">Transfer to QA bot by clicking transfer, dial with CX, stay silent, HANG UP TRANSFER LINE AFTER THE TAX QUESTION. DO NOT REACH WELCOME PACKET.</div>
+</div>
+</div>
+</div>
+<div class="step-card" onclick="toggleStep(this)">
+<div class="step-header">
+<div class="step-num">END</div>
+<div class="step-title">Post-QA — Onboarding Handoff</div>
+<span class="step-tag tag-mustdo">FINISH</span>
+<div class="step-chevron">▶</div>
+</div>
+<div class="step-body">
+<div class="script-line">"Now the next step isn't a new department or anything like that — it's just my onboarding team continuing the process with you. They already have your file in front of them, and they'll just finalize everything and make sure you're fully set moving forward. I'll transfer you over right now."</div>
+<div class="note">If busy: "They're going to call you from a 949 number within the next 15–20 minutes — make sure to pick that up."</div>
+<div class="section-title">Handoff Script</div>
+<div class="script-line">"Hey, I have <span class="placeholder">[Customer Name]</span> with me — file number MITI-<span class="placeholder">[XXX]</span>, all good to go."</div>
+<div class="script-line">"<span class="placeholder">[Customer]</span>, I have <span class="placeholder">[Rep Name]</span> on the line now. They're going to take it from here — you're in great hands. <span class="placeholder">[Rep]</span>, they're all yours."</div>
+<div class="note">🔴 LEAVE 3-WAY once done — DO NOT HANG UP THE CALL.</div>
+<div style="margin-top:20px; padding:16px; background:rgba(0,255,136,0.05); border:1px solid rgba(0,255,136,0.2); border-radius:8px; text-align:center;">
+<div style="font-size:18px; font-weight:800; color:var(--green); margin-bottom:6px;">🏆 CALL COMPLETE</div>
+<div style="font-size:12px; color:var(--muted); font-family:'Space Mono',monospace;">Read it. Run it. Trust the flow.<br/>For The Few... Not The Many.</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Notes FAB -->
+<button class="notes-fab" id="notesFab" onclick="toggleNotes()" title="Notes (N)">✎</button>
+<!-- Notes Panel -->
+<div class="notes-panel" id="notesPanel">
+<div class="notes-header">
+<span class="notes-title">✎ Call Notes</span>
+<button class="notes-close" onclick="toggleNotes()">×</button>
+</div>
+<textarea class="notes-textarea" id="notesTextarea" oninput="updateNotesChar()" placeholder="Type your call notes here...
+
+e.g. CX name, debt amount, pain points, objections heard..."></textarea>
+<div class="notes-footer">
+<span class="notes-char" id="notesChar">0 chars</span>
+<button class="notes-clear" onclick="clearNotes()">CLEAR</button>
+</div>
+</div>
+<!-- Flash message -->
+<div class="flash" id="flash"></div>
+<!-- Shortcut overlay -->
+<div class="shortcut-overlay" id="shortcutOverlay">
+<div class="shortcut-box">
+<div class="shortcut-title">⌨ Keyboard Shortcuts</div>
+<div class="shortcut-row">
+<span>Next Act</span>
+<div class="shortcut-keys"><kbd>→</kbd></div>
+</div>
+<div class="shortcut-row">
+<span>Previous Act</span>
+<div class="shortcut-keys"><kbd>←</kbd></div>
+</div>
+<div class="shortcut-row">
+<span>Mark Current Act Done</span>
+<div class="shortcut-keys"><kbd>M</kbd></div>
+</div>
+<div class="shortcut-row">
+<span>Jump to Act 1–7</span>
+<div class="shortcut-keys"><kbd>1</kbd> – <kbd>7</kbd></div>
+</div>
+<div class="shortcut-row">
+<span>Toggle Focus Mode (hide sidebar)</span>
+<div class="shortcut-keys"><kbd>F</kbd></div>
+</div>
+<div class="shortcut-row">
+<span>Toggle Notes Panel</span>
+<div class="shortcut-keys"><kbd>N</kbd></div>
+</div>
+<div class="shortcut-row">
+<span>Start / Stop Timer</span>
+<div class="shortcut-keys"><kbd>Space</kbd></div>
+</div>
+<div class="shortcut-row">
+<span>Reset Timer</span>
+<div class="shortcut-keys"><kbd>R</kbd></div>
+</div>
+<div class="shortcut-row">
+<span>Show / Hide Shortcuts</span>
+<div class="shortcut-keys"><kbd>?</kbd></div>
+</div>
+<span class="shortcut-close" onclick="toggleShortcuts()">Press ? or click anywhere to close</span>
+</div>
+</div>
+<script>
+  let currentAct = 0;
+  const totalActs = 7;
+  const doneActs = new Set();
+  let focusMode = false;
+  let notesOpen = false;
+
+  // TIMER
+  let timerInterval = null;
+  let timerSeconds = 0;
+  let timerRunning = false;
+
+  function startTimer() {
+    if (timerRunning) {
+      clearInterval(timerInterval);
+      timerRunning = false;
+      document.getElementById('timerStart').textContent = 'START';
+      document.getElementById('timerStart').classList.remove('active');
+    } else {
+      timerInterval = setInterval(() => {
+        timerSeconds++;
+        updateTimerDisplay();
+      }, 1000);
+      timerRunning = true;
+      document.getElementById('timerStart').textContent = 'PAUSE';
+      document.getElementById('timerStart').classList.add('active');
+    }
+  }
+
+  function resetTimer() {
+    clearInterval(timerInterval);
+    timerRunning = false;
+    timerSeconds = 0;
+    updateTimerDisplay();
+    document.getElementById('timerStart').textContent = 'START';
+    document.getElementById('timerStart').classList.remove('active');
+  }
+
+  function updateTimerDisplay() {
+    const m = String(Math.floor(timerSeconds / 60)).padStart(2, '0');
+    const s = String(timerSeconds % 60).padStart(2, '0');
+    document.getElementById('callTimer').textContent = `${m}:${s}`;
+  }
+
+  // SWITCH ACT
+  function switchAct(index) {
+    if (index < 0 || index >= totalActs) return;
+    document.querySelectorAll('.act-panel').forEach(p => p.classList.remove('visible'));
+    document.querySelectorAll('.act-btn').forEach(b => b.classList.remove('active'));
+    document.querySelector(`[data-panel="${index}"]`).classList.add('visible');
+    document.querySelector(`[data-act="${index}"]`).classList.add('active');
+    document.getElementById('contentArea').scrollTop = 0;
+    currentAct = index;
+  }
+
+  // MARK ACT DONE (toggleable)
+  function markDone(index) {
+    const btn = document.querySelector(`[data-act="${index}"]`);
+    if (doneActs.has(index)) {
+      doneActs.delete(index);
+      btn.classList.remove('done');
+      updateProgress();
+      flashMsg(`ACT ${index + 1} UNMARKED`);
+    } else {
+      doneActs.add(index);
+      btn.classList.add('done');
+      updateProgress();
+      flashMsg(`ACT ${index + 1} COMPLETE ✓`);
+      if (index + 1 < totalActs) {
+        setTimeout(() => switchAct(index + 1), 400);
+      }
+    }
+  }
+
+  function updateProgress() {
+    const pct = Math.round((doneActs.size / totalActs) * 100);
+    document.getElementById('progressFill').style.width = pct + '%';
+    document.getElementById('progressPct').textContent = pct + '%';
+  }
+
+  // TOGGLE STEP (expand/collapse)
+  function toggleStep(card) {
+    card.classList.toggle('expanded');
+  }
+
+  // MARK STEP DONE (toggleable) — called from button inside step-header
+  function toggleStepDone(e, btn) {
+    e.stopPropagation();
+    const card = btn.closest('.step-card');
+    const isDone = card.classList.toggle('step-done');
+    btn.textContent = isDone ? '↩ UNMARK' : '✓ DONE';
+    if (isDone) {
+      // collapse it when marked done
+      card.classList.remove('expanded');
+    }
+  }
+
+  // TOGGLE CHECK
+  function toggleCheck(item) {
+    event.stopPropagation();
+    item.classList.toggle('checked');
+  }
+
+  // TOGGLE CHECKPOINT
+  function toggleCheckpoint(item) {
+    event.stopPropagation();
+    item.classList.toggle('checked');
+  }
+
+  // TOGGLE QA
+  function toggleQA(item) {
+    item.classList.toggle('checked');
+  }
+
+  // FOCUS MODE
+  function toggleFocus() {
+    focusMode = !focusMode;
+    document.querySelector('.main').classList.toggle('focus-mode', focusMode);
+    const btn = document.getElementById('focusBtn');
+    btn.textContent = focusMode ? '⊟ EXIT FOCUS' : '⊞ FOCUS';
+    btn.classList.toggle('active', focusMode);
+  }
+
+  // NOTES
+  function toggleNotes() {
+    notesOpen = !notesOpen;
+    document.getElementById('notesPanel').classList.toggle('open', notesOpen);
+    document.getElementById('notesFab').classList.toggle('hidden', notesOpen);
+    if (notesOpen) {
+      setTimeout(() => document.getElementById('notesTextarea').focus(), 100);
+    }
+  }
+
+  function updateNotesChar() {
+    const len = document.getElementById('notesTextarea').value.length;
+    document.getElementById('notesChar').textContent = `${len} char${len !== 1 ? 's' : ''}`;
+  }
+
+  function clearNotes() {
+    if (confirm('Clear all notes?')) {
+      document.getElementById('notesTextarea').value = '';
+      updateNotesChar();
+    }
+  }
+
+  // FLASH
+  function flashMsg(msg) {
+    const f = document.getElementById('flash');
+    f.textContent = msg;
+    f.classList.add('show');
+    setTimeout(() => f.classList.remove('show'), 2000);
+  }
+
+  // SHORTCUTS
+  function toggleShortcuts() {
+    document.getElementById('shortcutOverlay').classList.toggle('visible');
+  }
+
+  document.getElementById('shortcutOverlay').addEventListener('click', function(e) {
+    if (e.target === this) toggleShortcuts();
+  });
+
+  // KEYBOARD
+  document.addEventListener('keydown', (e) => {
+    const tag = document.activeElement.tagName;
+    if (tag === 'TEXTAREA' || tag === 'INPUT') return;
+
+    switch(e.key) {
+      case 'ArrowRight': switchAct(currentAct + 1); break;
+      case 'ArrowLeft': switchAct(currentAct - 1); break;
+      case 'm': case 'M': markDone(currentAct); break;
+      case 'f': case 'F': toggleFocus(); break;
+      case 'n': case 'N': toggleNotes(); break;
+      case 'r': case 'R': resetTimer(); break;
+      case ' ':
+        e.preventDefault();
+        startTimer();
+        break;
+      case '?': toggleShortcuts(); break;
+      case '1': switchAct(0); break;
+      case '2': switchAct(1); break;
+      case '3': switchAct(2); break;
+      case '4': switchAct(3); break;
+      case '5': switchAct(4); break;
+      case '6': switchAct(5); break;
+      case '7': switchAct(6); break;
+    }
+  });
+
+  // Inject DONE button into every step-card header on load
+  document.querySelectorAll('.step-card').forEach(card => {
+    const header = card.querySelector('.step-header');
+    const chevron = header.querySelector('.step-chevron');
+
+    const doneBadge = document.createElement('span');
+    doneBadge.className = 'step-done-badge';
+    doneBadge.textContent = 'DONE';
+
+    const markBtn = document.createElement('button');
+    markBtn.className = 'step-mark-btn';
+    markBtn.textContent = '✓ DONE';
+    markBtn.addEventListener('click', (e) => toggleStepDone(e, markBtn));
+
+    header.insertBefore(doneBadge, chevron);
+    header.insertBefore(markBtn, chevron);
+
+    // Expand first step of each act
+  });
+
+  // Expand first step of each act by default
+  document.querySelectorAll('.act-panel').forEach(panel => {
+    const first = panel.querySelector('.step-card');
+    if (first) first.classList.add('expanded');
+  });
+</script>
+<!-- REBUTTALS MODAL -->
+<div class="modal-backdrop" id="modal" onclick="closeModal(event)">
+<div class="modal" id="modal-content"></div>
+</div>
+<script>const DATA = [{"num": 1, "title": "STAGE 1 — INTRO", "subtitle": "First contact, before pitch begins", "clusters": [{"name": "Trust / Legitimacy", "items": [{"id": "1.1", "keywords": "never heard of you bbb accredited accreditation reputation rating reviews who are you company credibility trust check legitimacy question first impression intro trust", "obj": "I never heard of your company — are you BBB accredited?", "reb": "[Laugh it off] Haha — honestly, there are like 50,000 lenders across the 50 states, you couldn\'t possibly know all of us, right? But yes, we are BBB accredited — feel free to look us up. Also real talk, I\'m not asking you to send us money or anything today, I\'m just checking what you qualify for. Zero commitment.", "bridge": "By the way — how much were you looking to borrow?"}, {"id": "1.2", "keywords": "is this legit is this real is this a scam is this safe proof secure verified scammed legitimacy doubt is this fake trust gut check intro skepticism", "obj": "How do I know that this is legit?", "reb": "Honestly, fair question. Real talk — today I\'m just checking what you qualify for, that\'s it. Nothing is committed, nothing\'s signed until later. And anything we end up agreeing on will be in an official written contract that you read and approve from your own email. You\'re protected every step.", "bridge": "By the way — how much were you looking to borrow?"}, {"id": "1.3", "keywords": "physical address where is your office where are you based headquarters san diego address question location check intro verify", "obj": "What\'s your physical address — where are you located?", "reb": "We\'re located in San Diego, California — though we work across all 50 states.", "bridge": "By the way — how much were you looking to borrow?"}, {"id": "1.4", "keywords": "are you in the us are you overseas are you offshore your accent where from are you indian are you filipino originally from onshore offshore doubt accent objection intro foreign fear", "obj": "Are you guys in the US or overseas?", "reb": "I live and work right here in the US — US citizen. I came here about 10 years ago, originally born in Italy. Came chasing the American dream, haha.", "bridge": "By the way — you ever been to Italy?"}, {"id": "1.5", "keywords": "nmls license number registered regulated licensed broker license look you up verify license license lookup nmls objection credentials check intro credentials", "obj": "What\'s your license number? Can I look you up on NMLS?", "reb": "Of course — I can email you our NMLS number right now, no problem.", "bridge": "By the way, while I\'m pulling that up — how much were you looking to borrow?"}]}, {"name": "Confusion about the offer", "items": [{"id": "1.6", "keywords": "didnt apply never applied how am i approved how did you get my info where did you get my information i never filled out approval confusion didnt apply objection experian leads intro source question", "obj": "How am I approved for a loan I didn\'t apply for?", "reb": "Good question — we work with Experian. They notify us when customers are applying or shopping around for loans, based on credit report data. From your initial numbers, you do look qualified.", "bridge": "By the way — if you were going to take a loan, whether for personal use or to pay off debts, how much were you looking to borrow?"}]}, {"name": "Email-deflection / Process avoidance", "items": [{"id": "1.7", "keywords": "just send me an email send it over look it over first send me the info ill review it email deflection send info first stall via email intro stall", "obj": "Just send me an email — I\'ll look it over.", "reb": "Haha — I wish, you\'d be saving me time too. But I\'d also be out of a job, right? Real talk though — I do need to walk through your credit report with you and take it to underwriting to get you the actual approved amount. THEN if the numbers work, you\'ll have everything in a written contract sent to your email.", "bridge": "By the way — how much were you looking to borrow?"}]}, {"name": "Info collection resistance", "items": [{"id": "1.8", "keywords": "thought i was approved why all these questions too many questions feels like an interview verify my identity social security number info collection resistance ssn resistance verification pushback intro info friction", "obj": "I thought I was already approved — why all these questions?", "reb": "Yes, you are approved based on initial Experian data — but we still need to go through the process like any loan you\'ve ever taken out, right? No lender just asks you \"which bank do you want the cash sent to\" without verifying anything first, haha — that\'s exactly how you\'d end up with identity theft. So this is for your protection too.", "bridge": "By the way — how much were you looking to borrow?"}]}]}, {"num": 2, "title": "STAGE 2 — HARDSHIP / PAIN QUESTION", "subtitle": "Mid-call, after rapport, before pitch", "clusters": [{"name": "Mid-call confusion", "items": [{"id": "2.1", "keywords": "why are you asking me am i approved or not what is this for getting personal hardship question confusion why asking pushback hardship discomfort", "obj": "Why are you asking me this — am I approved or not?", "reb": "Honestly, I don\'t usually ask this with every applicant — but I see you were on track previously, and looks like a few hiccups got the situation to where it is now. If I can go back to the underwriters and explain what happened, I\'m pretty sure I can get you the final approval. You know they like to check the story before lending out money — keeps them safe, right?", "bridge": "So if you don\'t mind me asking again — anything specific that got the debt to where it is today? A lot of my customers mention things like COVID, loss of income, medical stuff, you know."}, {"id": "2.2", "keywords": "i dont want debt consolidation i dont want this program dont want a debt program consolidation rejection program rejection hardship shutdown", "obj": "Why are you asking me this? If this is a debt consolidation, I don\'t want it.", "reb": "Honestly, I don\'t usually ask this with every applicant — but I see you were on track previously, and looks like a few hiccups got the situation to where it is now. If I can go back to the underwriters and explain what happened, I\'m pretty sure I can get you the final approval. You know they like to check the story before lending out money — keeps them safe, right?", "bridge": "So if you don\'t mind me asking again — anything specific that got the debt to where it is today? A lot of my customers mention things like COVID, loss of income, medical stuff, you know."}]}, {"name": "Data dispute", "items": [{"id": "2.3", "keywords": "my credit score is higher my fico is score is wrong transunion equifax different bureau score dispute credit score dispute bureau mismatch data dispute", "obj": "My credit score is higher than this — where did you get this information from?", "reb": "Which credit bureau did you last check your score with? I\'m pulling from Experian — sometimes there\'s a 30-50 point difference between bureaus, that\'s normal.", "bridge": "By the way — what was the score last time you checked?"}]}]}, {"num": 3, "title": "STAGE 3 — DURING PITCH", "subtitle": "While walking through the email + program", "clusters": [{"name": "\"What is this actually?\"  (most common confusion)", "items": [{"id": "3.1", "keywords": "this is not a loan where is the cash no money in my account i thought it was a loan what is this exactly not a loan confusion program vs loan no cash disappointment core pitch confusion is this a loan", "obj": "So this is not a loan?", "flagged": true, "note": "HIGH FREQUENCY", "reb": "You\'re right — today it\'s not a cash loan in your hand. But here\'s what it actually IS — it\'s getting you debt-free AND a loan in 90 days, both. The reason for the 90-day window — and I don\'t mean anything by this, (CX name), you\'re a good person, but not everyone is, right? When the credit has some marks on it, underwriting is wary — they want to see you\'re serious in the first 90 days. After those 3 payments on time, you\'re officially trusted, and that\'s when they hand out the graduation loan — $25,000 to $40,000 at 6% APR.", "bridge": "By the way — after the 90 days, what\'s the amount you\'d be looking to take from the grad loan so I can note it on the file?"}, {"id": "3.2", "keywords": "zero interest on the email no interest how do you make money what do you charge your fee on email zero interest question fee question early pitch fee curiosity", "obj": "How is your interest rate 0 on the email?", "reb": "Good catch — that\'s because interest is something that ACCRUES over time and isn\'t guaranteed. Our program is a fixed performance fee — meaning we don\'t earn anything unless we deliver what we promised, which is paying off your creditors. Until then, your money sits in an FDIC-insured trust account under YOUR name, federally protected. This is by state law, by the way, because back in the day some companies didn\'t deliver — so now you\'re protected on every angle. Our performance fee is 25% of the balance across the full program length, which works out to about 6–8% annually — but again, that\'s already built into the monthly number you\'re seeing in the email. No extras.", "bridge": "[Continue the next step of the pitch — do NOT stay silent waiting for agreement.]", "bridge_type": "continue"}]}, {"name": "Disputing the math", "items": [{"id": "3.3", "keywords": "ill finish in 3 years not 15 your math is wrong those numbers are wrong minimum payments calculation i pay more than minimum math dispute term length pushback numbers skepticism", "obj": "These numbers are wrong — I\'ll finish paying these off in 3 years, not 15.", "reb": "True — those numbers assume you\'re only making the MINIMUM payments monthly, right? But you\'re paying more than that. Either way, here\'s the thing — with our program, you finish in 90 days. Not 1 year, not 3, not 5. The program length is your payback time to US, but in 90 days your CREDITORS are paid, credit grows, no juggling 7 different bills, and a few months later you\'re completely done with everything.", "bridge": "By the way — how much exactly are you paying per month right now across all your debts?"}, {"id": "3.4", "keywords": "im paying 0 interest already intro rate promotional apr balance transfer 0% promo zero percent objection promo rate defense interest debate", "obj": "I\'m paying 0 interest on these accounts.", "reb": "Yeah — that\'s the popular bank technique, they convince you it\'s 0% but when you look at the numbers, it\'s the same outcome with a longer payback time. Either way, with our program you\'ll still be paying 0% interest AND a bit less than the original balance — because your creditors agree to drop the principal for us, since they\'re getting paid guaranteed cash in 90 days versus gambling on years of minimum payments.", "bridge": "By the way — are you currently using any of these accounts?"}]}, {"name": "Credit / Delinquency fears", "items": [{"id": "3.5", "keywords": "wait 90 days for delinquent accounts will be delinquent fall behind become late default on cards delinquency fear 90 day fear credit marks fear", "obj": "Wait — so I have to wait for 90 days before you pay my debts? That\'ll make my accounts delinquent.", "reb": "Correct — and there are two reasons for the 90 days: (1) It does take time to finalize all the paperwork, reach out to all your creditors, agree on everything, and send them the cash. (2) Real talk — and I don\'t usually explain this part, but you\'re smart and you\'ll get me — you\'re a good person, but not everyone is, right? When the credit has some marks on it, underwriting is wary — they want to see you\'re serious in the first 90 days. After those 3 payments on time, you\'re officially trusted, and that\'s when they hand out the graduation loan — $25,000 to $40,000 at 6% APR.", "bridge": "By the way — are you planning to make use of the graduation loan after 90 days? I want to note it on the file."}, {"id": "3.6", "keywords": "you negotiate down debts ruin my credit destroy my credit credit will tank settlement hurts credit negotiate down fear credit ruin fear settlement credit damage credit damage objection ruin credit", "obj": "So you\'ll negotiate down my debts — that\'ll ruin my credit score, I don\'t want to do it.", "reb": "(CX name), real quick — \"negotiate\" implies I\'m sending you estimates. But our system already filters based on creditors we work with daily — we have pre-established agreements with them, that\'s why you\'re getting exact numbers, which you\'ll see in writing today. And for your credit — yes, initially it takes a slight hit just like ANY traditional loan, I\'m sure you understand. BUT the whole point of this program is improving your credit. Amounts owed make up 35% of how Experian compiles your score — in 90 days, all amounts owed will be paid, so that biggest factor improves by 100%.", "bridge": "By the way — are you planning to make use of the graduation loan after 90 days as well? Because good news — it won\'t show on your credit report either, since you\'ll already be our customer on this program."}, {"id": "3.7", "keywords": "why will this affect my credit how does this hit my score credit impact score going down credit impact question score drop question credit clarification", "obj": "Why will this affect my credit?", "reb": "Initially it takes a slight hit on your credit, just like any traditional loan — I\'m sure you understand that part. HOWEVER, after 90 days once these debts are paid off, your credit grows organically. That\'s the whole point of the program. Because, as you may know, amounts owed make up 35% of how Experian compiles a credit score — once all these debts are paid after 90 days, that 35% category gets improved by 100%. So you can imagine how much higher it\'ll grow from where it is now.", "bridge": "By the way — are you looking to make use of the graduation loan after the 90 days? I want to put that on file."}]}, {"name": "Cards / 90-day rule", "items": [{"id": "3.8", "keywords": "can i use my cards swipe my card use my credit card what if i charge something during the 90 days card usage question use cards 90 days cards restriction", "obj": "What will happen if I use the cards within the next 90 days?", "reb": "Nothing scary — but the whole process gets delayed. Because then we\'d need to wait for the new balance to update on your credit report, which takes 30 days, and after that we\'d have to sign a new contract with the updated balance — since the amount would be bigger than what we agreed on today. So it just pushes everything back.", "bridge": "But tell me — I know life happens and you may need a card here and there — which card would you like to keep using? We\'ll just remove it from the program."}, {"id": "3.9", "keywords": "bank will close cards cut my credit limit freeze my cards why wouldnt they close card closure fear limit cut fear bank reaction doubt", "obj": "Why wouldn\'t the bank close the cards or cut my credit limit if they\'re getting less than what I owe?", "reb": "Fair thought — but here\'s the thing: that \"less than what I owe\" assumes you\'d keep making monthly payments only, which means interest keeps accruing forever. We\'re paying it in full at 90 days, so the interest gets removed since they\'re no longer lending you money, right? AND they\'d MUCH rather get guaranteed cash than gamble on years of minimum payments where one missed payment could put them at risk. It\'s the math, not us.", "bridge": "By the way — are there any cards here you\'d want to keep using in the next 90 days?"}]}, {"name": "Collections doubt", "items": [{"id": "3.10", "keywords": "already in collections dont owe them anymore charged off long ago statute of limitations fdcpa collections debt objection old debt dismissal collections doubt", "obj": "I don\'t owe these people any money — they\'re already in collections.", "reb": "That\'s actually good news — it means they\'re more likely to settle for a lower amount. We work with collection agencies all the time.", "bridge": "By the way — how much were you looking to borrow?"}]}]}, {"num": 4, "title": "STAGE 4 — CLOSING", "subtitle": "End of call, getting commitment", "clusters": [{"name": "Commitment / Next Steps", "items": [{"id": "4.1", "keywords": "need to think about it talk to my spouse partner family decision later commitment stall think it over objection spouse partner family decision delay", "obj": "I need to think about it / talk to my spouse.", "reb": "Absolutely, this is a big decision. What specifically do you need to think about? Is it the monthly payment, the program length, or something else?", "bridge": "Let\'s address that now so you have all the information you need to make an informed decision with your spouse."}, {"id": "4.2", "keywords": "call me back later busy now not a good time reschedule call back later busy objection reschedule delay", "obj": "Can you call me back later? I\'m busy right now.", "reb": "I understand you\'re busy, and I appreciate you taking the time to speak with me. I\'m actually finishing up my calls for the day, and I wanted to make sure we got this taken care of for you. What\'s a good time for us to finish this up right now?", "bridge": "Let\'s quickly wrap this up so you can get back to your day."}, {"id": "4.3", "keywords": "not interested anymore changed my mind no longer interested disinterest objection changed mind disengage", "obj": "I\'m not interested anymore.", "reb": "I understand. Could you tell me what changed your mind? Was it something I said, or something about the program?", "bridge": "I\'d appreciate your feedback so I can improve."}, {"id": "4.4", "keywords": "too expensive cost too much price objection affordability cost concern budget issue", "obj": "It\'s too expensive.", "reb": "I understand that the cost can seem like a lot upfront, but let\'s look at what you\'re currently paying and what you\'ll be saving. Over the long run, this program is designed to save you a significant amount of money and get you out of debt faster.", "bridge": "How much were you hoping to pay per month?"}, {"id": "4.5", "keywords": "i can do this myself self help diy debt management self manage objection diy approach", "obj": "I can do this myself.", "reb": "You absolutely can, and I commend you for wanting to take control of your finances. However, our program offers several advantages: we have pre-established agreements with creditors, which means better terms and faster resolutions than what an individual can typically achieve. We also handle all the paperwork and negotiations, saving you time and stress.", "bridge": "What part of the process were you planning to handle yourself?"}]}]};
+
+// Custom Rebuttals Integration
+const searchInput = document.getElementById("search");
+const modalBackdrop = document.getElementById("modal");
+const modalContent = document.getElementById("modal-content");
+
+function openModal(itemId) {
+  const item = DATA.flatMap(stage => stage.clusters.flatMap(cluster => cluster.items)).find(i => i.id === itemId);
+  if (!item) return;
+
+  const stage = DATA.find(s => s.clusters.some(c => c.items.some(i => i.id === itemId)));
+
+  modalContent.className = `modal ${item.flagged ? 'flagged' : ''}`;
+  modalContent.innerHTML = `
+    <div class="modal-header">
+      <div class="modal-id-row">
+        <div class="modal-id">${item.id}</div>
+        <div class="modal-stage">${stage.title}</div>
+      </div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+      <div class="modal-objection">${item.obj}</div>
+      ${item.flagged ? '<div class="modal-flag">❗ Urgent Objection</div>' : ''}
+      ${item.note ? `<div class="modal-note">Note: ${item.note}</div>` : ''}
+    </div>
+    <div class="modal-body">
+      <div class="section">
+        <div class="section-label">Rebuttal</div>
+        <div class="rebuttal-text">${item.reb}</div>
+      </div>
+      <div class="section">
+        <div class="section-label ${item.bridge_type === 'continue' ? 'bridge' : ''}">Bridge</div>
+        <div class="bridge-text ${item.bridge_type === 'continue' ? 'continue' : ''}">${item.bridge}</div>
+      </div>
+      ${item.fallback ? `
+        <div class="fallback-divider">Fallback</div>
+        <div class="section">
+          <div class="rebuttal-text">${item.fallback.reb}</div>
+        </div>
+        <div class="section">
+          <div class="section-label bridge">Bridge</div>
+          <div class="bridge-text">${item.fallback.bridge}</div>
+        </div>
+      ` : ''}
+      <div class="search-tags">
+        <span class="tag-label">Keywords:</span>
+        ${item.keywords.split(" ").map(keyword => `<span class="tag">${keyword}</span>`).join("")}
+      </div>
+    </div>
+  `;
+  modalBackdrop.classList.add("open");
+}
+
+function closeModal(event) {
+  if (event && event.target !== modalBackdrop) return;
+  modalBackdrop.classList.remove("open");
+}
+
+function renderSearchResults(query) {
+  const lowerQuery = query.toLowerCase();
+  const results = [];
+
+  DATA.forEach(stage => {
+    stage.clusters.forEach(cluster => {
+      cluster.items.forEach(item => {
+        if (item.obj.toLowerCase().includes(lowerQuery) || 
+            item.reb.toLowerCase().includes(lowerQuery) ||
+            item.keywords.toLowerCase().includes(lowerQuery)) {
+          results.push({ stage: stage, cluster: cluster, item: item });
+        }
+      });
+    });
+  });
+
+  modalContent.className = 'modal';
+  modalContent.innerHTML = `
+    <div class="modal-header">
+      <button class="modal-close" onclick="closeModal()">✕</button>
+      <div class="search-results-header" style="font-size: 18px; font-weight: bold; color: var(--navy);">Found <strong>${results.length}</strong> results for "${query}"</div>
+    </div>
+    <div class="modal-body" style="max-height: 60vh; overflow-y: auto;">
+      <div class="obj-list">
+        ${results.length > 0 ? results.map(result => `
+          <div class="obj-card ${result.item.flagged ? 'flagged' : ''}" onclick="openModal('${result.item.id}')" style="margin-bottom: 10px;">
+            <div class="obj-id">${result.item.id}</div>
+            <div class="obj-text">${result.item.flagged ? '<span class="star">❗</span>' : ''}${result.item.obj}</div>
+            <div class="arrow">▶</div>
+          </div>
+        `).join("") : `
+          <div class="search-empty">
+            <div class="icon">∅</div>
+            <div>No results found.</div>
+          </div>
+        `}
+      </div>
+    </div>
+  `;
+  modalBackdrop.classList.add("open");
+}
+
+if (searchInput) {
+  searchInput.addEventListener("keydown", (e) => {
+    if (e.key === 'Enter') {
+      const query = e.target.value;
+      if (query.length > 2) {
+        renderSearchResults(query);
+      }
+    }
+  });
+}
+</script>
+<script>
+// Mobile sidebar toggle
+function toggleSidebar() {
+  const sidebar = document.querySelector('.sidebar');
+  if (sidebar) {
+    sidebar.classList.toggle('open');
+  }
+}
+
+// Show hamburger button on mobile
+function updateSidebarToggle() {
+  const toggleBtn = document.getElementById('sidebar-toggle');
+  const sidebar = document.querySelector('.sidebar');
+  if (window.innerWidth <= 768) {
+    if (toggleBtn) toggleBtn.style.display = 'block';
+    if (sidebar) sidebar.classList.remove('open');
+  } else {
+    if (toggleBtn) toggleBtn.style.display = 'none';
+    if (sidebar) sidebar.classList.remove('open');
+  }
+}
+
+// Call on load and resize
+window.addEventListener('load', updateSidebarToggle);
+window.addEventListener('resize', updateSidebarToggle);
+
+// Close sidebar when clicking on a link
+const actBtns = document.querySelectorAll('.act-btn');
+actBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    const sidebar = document.querySelector('.sidebar');
+    if (sidebar && window.innerWidth <= 768) {
+      sidebar.classList.remove('open');
+    }
+  });
+});
+</script>
+</body>
+</html>
